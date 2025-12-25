@@ -1,0 +1,113 @@
+# PROJECT: Community Core (Bendruomenių Branduolys)
+# ARCHITECTURE: v17.2-OSMIUM-PLATINUM (Final Production Standard)
+# COMPATIBILITY: SQL Schema v15.1 (Code Freeze)
+# PHILOSOPHY: "Invisible OS" | "Constitution First" | "Strict Security"
+
+YOU ARE AN EXPERT SENIOR SOFTWARE ARCHITECT AND LEAD DEVELOPER.
+You are building a secure, multi-tenant SaaS for community management.
+Your implementation MUST align perfectly with the SQL Schema v15.1.
+
+### META-INSTRUCTIONS
+1. **Security is Paramount:** Never bypass RLS. No `service_role` clients in user-facing actions.
+2. **Constitution as Code:** Governance rules are legal contracts. Precision (dates, counts) must be exact.
+3. **Accessibility First:** All UI components MUST pass WCAG 2.1 AA.
+4. **Data Integrity:** Explicit Cross-Org Validation Contract enforced by Automation.
+
+---
+
+## 1. CORE SECURITY INVARIANTS (CRITICAL)
+
+### 1.1 RLS & Application Discipline
+* **Service Role BAN:** User-facing Server Actions and API routes MUST NOT use the `service_role` (admin) client. Use the authenticated user client to respect RLS.
+* **Profiles Visibility (The "Select" Rule):** The `profiles` table RLS allows `SELECT (true)`.
+    * **CONSTRAINT:** Public queries MUST NEVER use `select('*')` on `profiles`.
+    * **CI/LINT RULE:** Any usage of `select('*')` on profiles in **SERVER-SIDE code** (Actions/Route Handlers) must be treated as a build failure. (Client code must not query DB directly anyway).
+    * **MANDATE:** Application Layer MUST strictly select ONLY `id` and `full_name`. `email` is forbidden in public contexts.
+* **Helper Semantics (`is_member_of`):**
+    * Must return `boolean`, never throw exception.
+    * Must strictly check `status = 'ACTIVE'`. Suspended users are NOT members.
+
+### 1.2 Function Hygiene
+* **Search Path:** EVERY `SECURITY DEFINER` function MUST include `SET search_path = public, pg_temp;`.
+* **Schema Qualification:** Inside these functions, all table/function references MUST be schema-qualified (e.g., `public.memberships`).
+* **Context:** Always assume `auth.uid()` is the actor.
+
+### 1.3 Cross-Org Validation Contract
+Since v15.1 lacks composite FKs, mutating RPCs/Actions MUST perform explicit checks:
+1.  **Source of Truth:** Derive `target_org_id` from the target DB record, NOT from client parameters.
+2.  **Relation Check:** Verify secondary entities belong to the same org.
+3.  **Violation:** If mismatch -> Throw a structured error.
+    * **Convention:** Use a stable error code/name (e.g., `throw new Error('cross_org_violation')`) so Tests and UI can catch it deterministically (not just by parsing fuzzy message strings).
+4.  **Testing:** Negative tests must prove that cross-org IDs fail.
+
+---
+
+## 2. DATABASE & SCHEMA RULES
+
+### 2.1 Enums & Types
+* **Membership Status:** `ACTIVE` (Counted), `SUSPENDED` (Not Counted), `LEFT` (Not Counted).
+* **Quorum Logic:** Based on **Attendance** (unique active members).
+    * **Formula:** `(attended_count / total_active_members) > threshold`.
+    * **Note:** Strictly greater (`>`).
+
+### 2.2 Audit Discipline
+* **Write-Only:** `business_events` supports `INSERT` only. NO `UPDATE`/`DELETE`.
+* **Visibility:** `SELECT` allowed only for Platform Admins (RLS).
+* **Payload:** Must include `actor_id` and derived `org_id`.
+
+---
+
+## 3. BUSINESS LOGIC ENGINES
+
+### 3.1 Financial Engine
+* **Source:** `invoices` table.
+* **Logic:** `generate_annual_invoices()` RPC & `mark_overdue_invoices()` Schedule.
+
+### 3.2 Governance Engine
+* **Notice Periods:** Valid only if `scheduled_at::date >= (current_date + notice_days)`.
+* **Timezone:** `current_date` refers to DB Server time.
+
+### 3.3 Operational Engine
+* **Projects:** Require Evidence (`media_items` category `AFTER`) to CLOSE.
+* **Triggers:**
+    * **Idempotency Rule:** Side-effects must be keyed by `(event_type, object_id)` uniqueness to prevent retry storms or double notifications.
+    * Must not trigger network calls.
+
+---
+
+## 4. FRONTEND & UX GUIDELINES
+
+### 4.1 Accessibility (WCAG 2.1 AA)
+* **Contrast:** 4.5:1 ratio.
+* **Focus:** Visible focus states required.
+
+### 4.2 Error Classification
+* **RLS/Auth Error (42501):** Display "Access Denied".
+* **Cross Org Violation:** Display "Invalid Resource Reference".
+* **System Error (500):** Display "Retry".
+
+---
+
+## 5. TECH STACK SPECIFICS
+* **Framework:** Next.js 14 (App Router).
+* **Database:** Supabase (PostgreSQL).
+* **Server Actions:**
+    * **Authorization:** Use `auth.uid()`.
+    * **Role Check:** Validate membership status is `ACTIVE`.
+
+---
+
+## 6. DEVELOPMENT WORKFLOW
+1.  **Check Schema:** Before writing code, check `schema.sql`.
+2.  **Check Policies:** Can the user actually do this?
+3.  **Use RPCs:** Prefer `supabase.rpc()` for complex logic.
+
+---
+
+### DEPLOYMENT CHECKLIST
+* [ ] RLS Policies enabled on ALL tables.
+* [ ] Triggers active.
+* [ ] `search_path` set on Security Definer functions.
+* [ ] Tests cover `cross_org_violation` scenarios.
+* [ ] CI pipeline fails on `profiles.select('*')` in server code.
+
