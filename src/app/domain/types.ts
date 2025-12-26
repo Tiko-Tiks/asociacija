@@ -1,4 +1,9 @@
-import { MEMBERSHIP_STATUS, PROJECT_STATUS, PROJECT_ROLE } from './constants'
+import {
+  MEMBERSHIP_STATUS,
+  PROJECT_STATUS,
+  PROJECT_ROLE,
+  PROJECT_AUDIT_ACTION,
+} from './constants'
 
 export type MembershipStatus =
   (typeof MEMBERSHIP_STATUS)[keyof typeof MEMBERSHIP_STATUS]
@@ -8,4 +13,7 @@ export type ProjectStatus =
 
 export type ProjectRole =
   (typeof PROJECT_ROLE)[keyof typeof PROJECT_ROLE]
+
+export type ProjectAuditAction =
+  (typeof PROJECT_AUDIT_ACTION)[keyof typeof PROJECT_AUDIT_ACTION]
 

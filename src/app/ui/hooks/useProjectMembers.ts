@@ -2,25 +2,116 @@
 
 import { useState } from 'react'
 import { listProjectMembers } from '@/app/actions/projectMembers'
+import {
+  addProjectMember,
+  updateProjectMemberRole,
+  removeProjectMember,
+} from '@/app/actions/projectMemberMutations'
+import { mapServerError } from '@/app/ui/errors'
+import type { ProjectRole } from '@/app/domain/types'
 
-export function useProjectMembers(projectId: string) {
-  const [members, setMembers] = useState<any[]>([])
+export interface ProjectMember {
+  id: string
+  user_id: string
+  role: ProjectRole
+}
+
+export function useProjectMembers(
+  projectId: string,
+  membershipId: string
+) {
+  const [members, setMembers] = useState<ProjectMember[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function load() {
+  async function loadProjectMembers() {
     try {
       setLoading(true)
       setError(null)
       const data = await listProjectMembers(projectId)
-      setMembers(data)
-    } catch (e: any) {
-      setError(e.message)
+      setMembers(data as ProjectMember[])
+    } catch (e: unknown) {
+      const uiError = mapServerError(e)
+      if (uiError === 'AUTH') {
+        setError('Authentication required')
+      } else if (uiError === 'FORBIDDEN') {
+        setError('Not allowed')
+      } else {
+        setError('Failed to load members')
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  return { members, loading, error, load }
+  async function addMember(
+    userId: string,
+    role: 'VIEWER' | 'EDITOR'
+  ): Promise<void> {
+    try {
+      setError(null)
+      await addProjectMember(projectId, membershipId, userId, role)
+      await loadProjectMembers()
+    } catch (e: unknown) {
+      const uiError = mapServerError(e)
+      if (uiError === 'AUTH') {
+        setError('Authentication required')
+      } else if (uiError === 'FORBIDDEN') {
+        setError('Not allowed')
+      } else {
+        setError('Action failed')
+      }
+      throw e
+    }
+  }
+
+  async function updateMemberRole(
+    userId: string,
+    role: 'VIEWER' | 'EDITOR'
+  ): Promise<void> {
+    try {
+      setError(null)
+      await updateProjectMemberRole(projectId, membershipId, userId, role)
+      await loadProjectMembers()
+    } catch (e: unknown) {
+      const uiError = mapServerError(e)
+      if (uiError === 'AUTH') {
+        setError('Authentication required')
+      } else if (uiError === 'FORBIDDEN') {
+        setError('Not allowed')
+      } else {
+        setError('Action failed')
+      }
+      throw e
+    }
+  }
+
+  async function removeMember(userId: string): Promise<void> {
+    try {
+      setError(null)
+      await removeProjectMember(projectId, membershipId, userId)
+      await loadProjectMembers()
+    } catch (e: unknown) {
+      const uiError = mapServerError(e)
+      if (uiError === 'AUTH') {
+        setError('Authentication required')
+      } else if (uiError === 'FORBIDDEN') {
+        setError('Not allowed')
+      } else {
+        setError('Action failed')
+      }
+      throw e
+    }
+  }
+
+  return {
+    members,
+    loading,
+    error,
+    load: loadProjectMembers,
+    addMember,
+    updateMemberRole,
+    removeMember,
+  }
 }
 

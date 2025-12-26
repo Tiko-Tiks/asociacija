@@ -21,3 +21,9 @@ export const PROJECT_ROLE = {
   VIEWER: 'VIEWER',
 } as const
 
+export const PROJECT_AUDIT_ACTION = {
+  MEMBER_ADDED: 'MEMBER_ADDED',
+  ROLE_CHANGED: 'ROLE_CHANGED',
+  MEMBER_REMOVED: 'MEMBER_REMOVED',
+} as const
+
