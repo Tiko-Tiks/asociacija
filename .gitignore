@@ -11,3 +11,4 @@ tsconfig.tsbuildinfo
 .cursor/
 dist/
 
+.next/
