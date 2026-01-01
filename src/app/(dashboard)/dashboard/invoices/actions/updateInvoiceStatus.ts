@@ -171,7 +171,7 @@ export async function updateInvoiceStatus(
   // Add .select('id') to detect RLS-blocked updates
   const { data: updatedRows, error: updateError }: any = await supabase
     .from('invoices')
-    .update({ status: INVOICE_STATUS.SENT })
+    .update({ status: INVOICE_STATUS.SENT as string })
     .eq('id', invoice_id)
     .eq('org_id', invoice.org_id)
     .select('id')
