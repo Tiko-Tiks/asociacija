@@ -169,10 +169,10 @@ export async function updateInvoiceStatus(
 
   // Update invoice status with both id and org_id conditions for safety
   // Add .select('id') to detect RLS-blocked updates
-  const updatePayload: { status: string } = { status: INVOICE_STATUS.SENT }
-  const { data: updatedRows, error: updateError }: any = await supabase
-    .from('invoices')
-    .update(updatePayload)
+  // Type assertion needed due to Supabase TypeScript inference limitations
+  const { data: updatedRows, error: updateError }: any = await (supabase
+    .from('invoices') as any)
+    .update({ status: INVOICE_STATUS.SENT })
     .eq('id', invoice_id)
     .eq('org_id', invoice.org_id)
     .select('id')
