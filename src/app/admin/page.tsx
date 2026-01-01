@@ -1,6 +1,7 @@
 import { SuperAdminDashboard } from '@/components/admin/super-admin-dashboard'
 import { getGlobalStats } from '@/app/actions/admin/global-stats'
 import { getAllOrganizationsAdmin } from '@/app/actions/admin/manage-orgs'
+import { getCommunityApplications } from '@/app/actions/admin'
 
 /**
  * Super Admin Dashboard - Mission Control
@@ -12,8 +13,8 @@ export const dynamic = 'force-dynamic' // Uses admin client with service role ke
 
 export default async function SuperAdminPage() {
   try {
-    // Fetch global stats and organizations
-    const [globalStats, organizations] = await Promise.all([
+    // Fetch global stats, organizations, and community applications
+    const [globalStats, organizations, applications] = await Promise.all([
       getGlobalStats().catch((error) => {
         console.error('Error fetching global stats:', error)
         // Return default stats on error
@@ -40,6 +41,10 @@ export default async function SuperAdminPage() {
         console.error('Error fetching organizations:', error)
         return []
       }),
+      getCommunityApplications().catch((error) => {
+        console.error('Error fetching community applications:', error)
+        return []
+      }),
     ])
 
     return (
@@ -47,6 +52,7 @@ export default async function SuperAdminPage() {
         <SuperAdminDashboard
           globalStats={globalStats}
           organizations={organizations}
+          applications={applications}
         />
       </div>
     )

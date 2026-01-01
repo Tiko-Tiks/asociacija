@@ -108,9 +108,31 @@ export async function getCommunityApplications(): Promise<Array<{
     authViolation()
   }
 
-  // TODO: Query from applications table when it exists
-  // For now, return empty array (will be implemented with proper storage)
-  return []
+  // Query from community_applications table
+  const { data: applications, error: appsError }: any = await supabase
+    .from('community_applications')
+    .select('id, community_name, contact_person, email, description, status, created_at')
+    .order('created_at', { ascending: false })
+
+  if (appsError) {
+    if (appsError.code === '42P01') {
+      // Table doesn't exist - return empty array
+      console.warn('community_applications table does not exist')
+      return []
+    }
+    console.error('Error fetching community applications:', appsError)
+    return []
+  }
+
+  return (applications || []).map((app: any) => ({
+    id: app.id,
+    communityName: app.community_name,
+    contactPerson: app.contact_person,
+    email: app.email,
+    description: app.description,
+    status: app.status || 'PENDING',
+    created_at: app.created_at,
+  }))
 }
 
 /**
