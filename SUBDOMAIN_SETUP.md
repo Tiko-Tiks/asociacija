@@ -19,9 +19,16 @@ Sistema naudoja subdomenus kaip organizacijų identifikatorius. Kiekviena organi
 
 ### 3. RLS Policies
 
-**SVARBU:** Public community puslapiui reikia RLS policy, kad anoniminės užklausos galėtų skaityti `orgs` lentelę.
+**✅ PATIKRINTA:** RLS policy `anon_select_orgs_public` jau egzistuoja `orgs` lentelėje.
 
-Reikalinga policy:
+Patikrinkite:
+```sql
+SELECT * FROM pg_policies 
+WHERE tablename = 'orgs' 
+AND policyname = 'anon_select_orgs_public';
+```
+
+Jei policy neegzistuoja (nors turėtų), sukurkite:
 ```sql
 -- Allow anonymous users to read public org data
 CREATE POLICY anon_select_orgs_public ON orgs
@@ -29,6 +36,8 @@ CREATE POLICY anon_select_orgs_public ON orgs
   TO anon
   USING (true); -- Or add visibility check if needed
 ```
+
+**PASTABA:** Jei gaunate klaidą "policy already exists", tai reiškia, kad policy jau yra ir viskas gerai.
 
 ## Patikrinimas
 
