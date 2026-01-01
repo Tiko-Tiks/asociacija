@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation'
-import { listOrganizationProjects } from '@/app/actions/projects'
+import { listProjects } from '@/app/actions/projects'
 import { getUserOrgs, getMembershipRole } from '@/app/actions/organizations'
 import { ProjectsListClient } from '@/components/projects/projects-list-client'
 import { isPilotMode } from '@/lib/pilot-mode'
@@ -24,7 +24,7 @@ async function ProjectsListContent({ slug }: { slug: string }) {
 
   // Fetch projects and user role
   const [projects, userRole] = await Promise.all([
-    listOrganizationProjects(selectedOrg.membership_id),
+    listProjects(selectedOrg.id),
     getMembershipRole(selectedOrg.membership_id),
   ])
 

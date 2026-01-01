@@ -81,6 +81,84 @@ export interface UpdateContributionStatusResult {
 // ==================================================
 
 /**
+ * Create a new project
+ */
+export async function createProject(
+  orgIdOrMembershipId: string,
+  title: string,
+  description?: string,
+  budgetEur?: number
+): Promise<{ success: boolean; data?: Project; error?: string }> {
+  const supabase = await createClient()
+  const user = await requireAuth(supabase)
+
+  // Try to resolve org_id from membership_id if needed
+  let orgId = orgIdOrMembershipId
+  if (orgIdOrMembershipId.includes('-') && orgIdOrMembershipId.length > 20) {
+    // Likely a membership_id, try to resolve org_id
+    const { data: membership } = await supabase
+      .from('memberships')
+      .select('org_id')
+      .eq('id', orgIdOrMembershipId)
+      .single()
+    
+    if (membership) {
+      orgId = membership.org_id
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('projects')
+    .insert({
+      org_id: orgId,
+      title: title.trim(),
+      description: description?.trim() || null,
+      budget_eur: budgetEur || 0,
+      status: 'PLANNING',
+      created_by: user.id,
+      funding_opened_at: new Date().toISOString(),
+    })
+    .select()
+    .single()
+
+  if (error) {
+    if (error.code === '42501') {
+      authViolation()
+    }
+    console.error('Error creating project:', error)
+    return {
+      success: false,
+      error: 'OPERATION_FAILED',
+    }
+  }
+
+  if (!data) {
+    return {
+      success: false,
+      error: 'OPERATION_FAILED',
+    }
+  }
+
+  revalidatePath('/dashboard', 'layout')
+  return {
+    success: true,
+    data: {
+      id: data.id,
+      org_id: data.org_id,
+      idea_id: data.idea_id,
+      title: data.title,
+      description: data.description,
+      status: data.status as ProjectStatus,
+      budget_eur: parseFloat(data.budget_eur) || 0,
+      created_by: data.created_by,
+      created_at: data.created_at,
+      funding_opened_at: data.funding_opened_at,
+      completed_at: data.completed_at,
+    },
+  }
+}
+
+/**
  * List projects for an organization
  */
 export async function listProjects(orgId: string): Promise<Project[]> {
