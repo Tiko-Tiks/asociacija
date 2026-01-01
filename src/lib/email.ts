@@ -129,56 +129,8 @@ export async function sendGovernanceSubmissionEmail(data: {
   chairmanName: string | null
   chairmanEmail: string | null
 }): Promise<void> {
-  const subject = 'Nauja bendruomenė pateikta patvirtinimui'
-
-  const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      </head>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #334155; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-          <h1 style="color: #1e293b; margin: 0 0 10px 0;">Nauja bendruomenė pateikta patvirtinimui</h1>
-        </div>
-        
-        <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
-          <p style="margin: 0 0 15px 0;">Nauja bendruomenė pateikė valdymo atsakymus ir priėmė visus privalomus sutikimus.</p>
-          
-          <div style="background: #f1f5f9; padding: 15px; border-radius: 6px; margin: 20px 0;">
-            <h2 style="color: #1e293b; margin: 0 0 10px 0; font-size: 18px;">Bendruomenės informacija</h2>
-            <p style="margin: 5px 0;"><strong>Pavadinimas:</strong> ${data.orgName}</p>
-            <p style="margin: 5px 0;"><strong>Subdomenas:</strong> /c/${data.orgSlug}</p>
-            <p style="margin: 5px 0;"><strong>Pirmininkas:</strong> ${data.chairmanName || 'Nepriskyrimas'}</p>
-            ${data.chairmanEmail ? `<p style="margin: 5px 0;"><strong>El. paštas:</strong> ${data.chairmanEmail}</p>` : ''}
-            <p style="margin: 5px 0;"><strong>Statusas:</strong> <span style="color: #f59e0b; font-weight: bold;">Laukia patvirtinimo</span></p>
-          </div>
-          
-          <p style="margin: 20px 0 0 0; color: #64748b; font-size: 14px;">
-            Prašome peržiūrėti pateiktus valdymo atsakymus ir patvirtinti organizaciją, kai ji atitinka visus reikalavimus.
-          </p>
-        </div>
-        
-        <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 8px; text-align: center; color: #64748b; font-size: 12px;">
-          <p style="margin: 0;">Bendruomenių Branduolys - Lietuvos bendruomenių platforma</p>
-        </div>
-      </body>
-    </html>
-  `
-
-  const text = `
-Nauja bendruomenė pateikta patvirtinimui
-
-Bendruomenės informacija:
-- Pavadinimas: ${data.orgName}
-- Subdomenas: /c/${data.orgSlug}
-- Pirmininkas: ${data.chairmanName || 'Nepriskyrimas'}
-${data.chairmanEmail ? `- El. paštas: ${data.chairmanEmail}` : ''}
-- Statusas: Laukia patvirtinimo
-
-Prašome peržiūrėti pateiktus valdymo atsakymus ir patvirtinti organizaciją.
-  `.trim()
+  const { getGovernanceSubmissionEmail } = await import('./email-templates')
+  const { subject, html, text } = getGovernanceSubmissionEmail(data)
 
   const result = await sendEmail({
     to: CORE_ADMIN_EMAIL,
