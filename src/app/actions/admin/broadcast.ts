@@ -26,7 +26,8 @@ export async function sendGlobalBroadcast(
   const supabase = createAdminClient()
 
   // Get all OWNER memberships
-  const { data: ownerMemberships, error: membershipsError } = await supabase
+  // Type assertion needed due to Supabase TypeScript inference limitations
+  const { data: ownerMemberships, error: membershipsError }: any = await supabase
     .from('memberships')
     .select('user_id, org_id')
     .eq('role', 'OWNER')
@@ -57,8 +58,9 @@ export async function sendGlobalBroadcast(
   }))
 
   // Insert notifications (check if notifications table exists)
-  const { data: insertedNotifications, error: insertError } = await supabase
-    .from('notifications')
+  // Type assertion needed due to Supabase TypeScript inference limitations
+  const { data: insertedNotifications, error: insertError }: any = await (supabase
+    .from('notifications') as any)
     .insert(notifications)
     .select('id')
 
@@ -94,7 +96,8 @@ export async function createGlobalAnnouncement(
   const supabase = createAdminClient()
 
   // Try to insert into announcements table (if exists)
-  const { error: insertError } = await supabase.from('announcements').insert({
+  // Type assertion needed due to Supabase TypeScript inference limitations
+  const { error: insertError }: any = await (supabase.from('announcements') as any).insert({
     type: announcement.type,
     title: announcement.title,
     message: announcement.message,
