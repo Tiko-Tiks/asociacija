@@ -16,9 +16,9 @@
  */
 
 const APP_NAME = 'Bendruomenių Branduolys'
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL 
   ? `https://${process.env.VERCEL_URL}` 
-  : 'https://branduolys.lt'
+  : 'https://asociacija.net')
 
 /**
  * Base email template wrapper
