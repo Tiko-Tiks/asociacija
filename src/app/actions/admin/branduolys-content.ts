@@ -198,8 +198,9 @@ export async function updateLandingPageContent(
   }
 
   // Upsert into system_config table
-  const { error } = await supabase
-    .from('system_config')
+  // Type assertion needed due to Supabase TypeScript inference limitations
+  const { error }: any = await (supabase
+    .from('system_config') as any)
     .upsert(
       {
         key: 'landing_page_content',
