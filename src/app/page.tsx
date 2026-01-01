@@ -33,6 +33,8 @@ import { NewsSection } from '@/components/landing/news-section'
  * 6. Institutional News
  * 7. Footer (via PageLayout)
  */
+export const dynamic = 'force-dynamic' // Uses cookies for auth
+
 export default async function Home() {
   // Step 1: Resolve membership state and user info (single source of truth)
   let state: MembershipState

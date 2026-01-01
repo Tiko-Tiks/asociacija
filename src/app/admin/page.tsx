@@ -8,6 +8,8 @@ import { getAllOrganizationsAdmin } from '@/app/actions/admin/manage-orgs'
  * Platform Core administration interface.
  * Only accessible to users in NEXT_PUBLIC_SUPER_ADMINS.
  */
+export const dynamic = 'force-dynamic' // Uses admin client with service role key
+
 export default async function SuperAdminPage() {
   // Fetch global stats and organizations
   const [globalStats, organizations] = await Promise.all([
