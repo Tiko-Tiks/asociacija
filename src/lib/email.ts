@@ -83,30 +83,79 @@ export async function sendEmail(options: {
     // Supabase Auth email is primarily for auth emails, but can be used for custom emails
     // via database triggers or Edge Functions
     
-    // Option 3: Log email (development/fallback)
-    // In development, log the email details
-    // In production, this should be replaced with actual email service
-    console.log('EMAIL SENT (logged):', {
-      to: options.to,
-      subject: options.subject,
-      from: EMAIL_FROM,
-      html_preview: options.html.substring(0, 200) + '...',
-      text_preview: options.text?.substring(0, 200) + '...',
-    })
+    // Option 3: Use Resend API directly (development and production)
+    // This works in both development and production if RESEND_API_KEY is set
+    const resendApiKey = process.env.RESEND_API_KEY
+    
+    if (resendApiKey) {
+      try {
+        const resendResponse = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: EMAIL_FROM,
+            to: options.to,
+            subject: options.subject,
+            html: options.html,
+            text: options.text || options.html.replace(/<[^>]*>/g, ''),
+          }),
+        })
 
-    // TODO: For production, integrate with actual email service:
-    // - Resend API (recommended for Supabase)
-    // - SendGrid
-    // - AWS SES
-    // Example with Resend:
-    // const resend = new Resend(process.env.RESEND_API_KEY)
-    // await resend.emails.send({
-    //   from: EMAIL_FROM,
-    //   to: options.to,
-    //   subject: options.subject,
-    //   html: options.html,
-    //   text: options.text,
-    // })
+        if (!resendResponse.ok) {
+          const errorData = await resendResponse.json().catch(() => ({}))
+          console.error('EMAIL INCIDENT: Resend API error:', {
+            status: resendResponse.status,
+            statusText: resendResponse.statusText,
+            error: errorData,
+          })
+          // Fall through to logging
+        } else {
+          const result = await resendResponse.json()
+          console.log('EMAIL SENT via Resend API:', {
+            to: options.to,
+            subject: options.subject,
+            id: result.id,
+          })
+          return { success: true }
+        }
+      } catch (resendError: any) {
+        console.error('EMAIL INCIDENT: Resend API request failed:', resendError)
+        // Fall through to logging
+      }
+    }
+
+    // Option 4: Log email (development/fallback when no email service configured)
+    // In development, log the email details so developers can see what would be sent
+    const isDevelopment = process.env.NODE_ENV === 'development'
+    
+    if (isDevelopment) {
+      console.log('='.repeat(80))
+      console.log('📧 EMAIL (DEVELOPMENT MODE - NOT SENT):')
+      console.log('='.repeat(80))
+      console.log('To:', options.to)
+      console.log('From:', EMAIL_FROM)
+      console.log('Subject:', options.subject)
+      console.log('---')
+      console.log('HTML Preview:')
+      console.log(options.html.substring(0, 500) + (options.html.length > 500 ? '...' : ''))
+      console.log('---')
+      if (options.text) {
+        console.log('Text Preview:')
+        console.log(options.text.substring(0, 500) + (options.text.length > 500 ? '...' : ''))
+      }
+      console.log('='.repeat(80))
+      console.log('💡 TIP: Set RESEND_API_KEY in .env.local to send real emails in development')
+      console.log('='.repeat(80))
+    } else {
+      // Production: Log but warn that email wasn't sent
+      console.warn('EMAIL NOT SENT (no email service configured):', {
+        to: options.to,
+        subject: options.subject,
+      })
+    }
 
     return { success: true }
   } catch (error: any) {
