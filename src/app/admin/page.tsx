@@ -58,7 +58,7 @@ export default async function SuperAdminPage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-400 mb-4">Klaida</h1>
           <p className="text-slate-300 mb-4">
-            Nepavyko užkrauti admin puslapio. Patikrinkite serverio log'us.
+            Nepavyko užkrauti admin puslapio. Patikrinkite serverio log&apos;us.
           </p>
           <p className="text-sm text-slate-500">
             {error instanceof Error ? error.message : 'Nežinoma klaida'}
