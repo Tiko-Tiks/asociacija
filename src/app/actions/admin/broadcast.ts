@@ -43,7 +43,7 @@ export async function sendGlobalBroadcast(
   }
 
   // Create notifications for each owner
-  const notifications = ownerMemberships.map((membership) => ({
+  const notifications = (ownerMemberships || []).map((membership: any) => ({
     user_id: membership.user_id,
     org_id: membership.org_id,
     type: 'BROADCAST',
