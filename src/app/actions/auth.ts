@@ -214,8 +214,14 @@ export async function forgotPassword(formData: FormData) {
   const supabase = createAnonClient()
 
   // Send password reset email
+  // Use Vercel URL if available, otherwise try NEXT_PUBLIC_APP_URL, fallback to localhost
+  const appUrl = 
+    process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}`
+      : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password`,
+    redirectTo: `${appUrl}/reset-password`,
   })
 
   if (error) {
