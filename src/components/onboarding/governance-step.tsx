@@ -8,10 +8,11 @@ import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
 import { submitGovernanceAnswers } from '@/app/actions/governance-submission'
+import { saveGovernanceDraft } from '@/app/actions/governance-draft'
 import { getActiveGovernanceQuestions, type GovernanceQuestion } from '@/app/actions/governance-questions'
 import { getGovernanceConfig } from '@/app/actions/governance-config'
 import { useToast } from '@/components/ui/use-toast'
-import { Loader2, FileText } from 'lucide-react'
+import { Loader2, FileText, Save } from 'lucide-react'
 
 interface GovernanceStepProps {
   orgId: string
@@ -22,6 +23,7 @@ interface GovernanceStepProps {
 export function GovernanceStep({ orgId, onComplete, allowUpdateForActive = false }: GovernanceStepProps) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [savingDraft, setSavingDraft] = useState(false)
   const [questions, setQuestions] = useState<GovernanceQuestion[]>([])
   const [loadingQuestions, setLoadingQuestions] = useState(true)
   const [currentSection, setCurrentSection] = useState(0)
@@ -515,6 +517,79 @@ export function GovernanceStep({ orgId, onComplete, allowUpdateForActive = false
             Atgal
           </Button>
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                setSavingDraft(true)
+                try {
+                  // Process form data same way as submit
+                  const processedData: Record<string, any> = {}
+                  questions.forEach((q) => {
+                    const value = formData[q.question_key]
+                    if (value === undefined || value === null) return
+
+                    if (q.question_type === 'number') {
+                      if (typeof value === 'string' && value.trim() !== '') {
+                        const numValue = Number(value)
+                        if (!isNaN(numValue)) {
+                          processedData[q.question_key] = numValue
+                        }
+                      } else if (typeof value === 'number') {
+                        processedData[q.question_key] = value
+                      }
+                    } else if (q.question_type === 'checkbox') {
+                      processedData[q.question_key] = Boolean(value)
+                    } else if (q.question_type === 'date') {
+                      if (value !== undefined && value !== null && value !== '') {
+                        processedData[q.question_key] = String(value)
+                      }
+                    } else {
+                      if (value !== undefined && value !== null && value !== '') {
+                        processedData[q.question_key] = String(value)
+                      }
+                    }
+                  })
+
+                  const result = await saveGovernanceDraft(orgId, processedData)
+                  if (result.success) {
+                    toast({
+                      title: 'Juodraštis išsaugotas',
+                      description: result.emailSent 
+                        ? 'Duomenys išsaugoti. Patikrinkite el. paštą - gausite nuorodą grįžti.'
+                        : 'Duomenys išsaugoti. Galite grįžti vėliau.',
+                    })
+                  } else {
+                    toast({
+                      title: 'Klaida',
+                      description: result.error || 'Nepavyko išsaugoti juodraščio',
+                      variant: 'destructive',
+                    })
+                  }
+                } catch (error) {
+                  toast({
+                    title: 'Klaida',
+                    description: 'Įvyko netikėta klaida',
+                    variant: 'destructive',
+                  })
+                } finally {
+                  setSavingDraft(false)
+                }
+              }}
+              disabled={savingDraft || loading}
+              className="min-w-[140px]"
+            >
+              {savingDraft ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Išsaugoma...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Išsaugoti juodraštį
+                </>
+              )}
+            </Button>
             {currentSection < sections.length - 1 ? (
               <Button onClick={handleNext} variant="default" className="min-w-[120px]">
                 Kitas

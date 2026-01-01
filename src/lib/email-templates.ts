@@ -299,11 +299,32 @@ export function getRegistrationConfirmationEmail(data: {
   communityName: string
   email: string
   onboardingLink?: string
+  password?: string
 }): { subject: string; html: string; text: string } {
   const subject = 'Jūsų paraiška gauta - Branduolys'
   
   let onboardingSection = ''
-  if (data.onboardingLink) {
+  if (data.onboardingLink && data.password) {
+    // New flow: Account created, password provided, onboarding link available
+    onboardingSection = `
+      ${getInfoBox('Jūsų paskyra sukurta! Dabar galite pradėti onboarding procesą.', 'success')}
+      
+      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; margin: 20px 0;">
+        <p style="margin: 0 0 8px 0; color: #1e293b; font-size: 14px; font-weight: 600;">Jūsų prisijungimo duomenys:</p>
+        <p style="margin: 0 0 4px 0; color: #475569; font-size: 14px;"><strong>El. paštas:</strong> ${data.email}</p>
+        <p style="margin: 0; color: #475569; font-size: 14px;"><strong>Slaptažodis:</strong> <code style="background-color: #ffffff; padding: 2px 6px; border-radius: 3px; font-family: monospace; font-size: 13px;">${data.password}</code></p>
+        <p style="margin: 12px 0 0 0; color: #64748b; font-size: 12px;">⚠️ Išsaugokite šiuos duomenis. Rekomenduojame pakeisti slaptažodį po pirmo prisijungimo.</p>
+      </div>
+      
+      ${getButton(data.onboardingLink, 'Pradėti onboarding', 'primary')}
+      
+      <p style="margin: 16px 0 0 0; color: #64748b; font-size: 14px; line-height: 1.6;">
+        Jei mygtukas neveikia, nukopijuokite šią nuorodą į naršyklę:<br>
+        <a href="${data.onboardingLink}" style="color: #3b82f6; word-break: break-all; text-decoration: underline;">${data.onboardingLink}</a>
+      </p>
+    `
+  } else if (data.onboardingLink) {
+    // Onboarding link provided but no password (existing user)
     onboardingSection = `
       ${getInfoBox('Jūsų paraiška buvo patvirtinta! Dabar galite pradėti onboarding procesą.', 'success')}
       
@@ -315,6 +336,7 @@ export function getRegistrationConfirmationEmail(data: {
       </p>
     `
   } else {
+    // No onboarding link - old flow (waiting for admin approval)
     onboardingSection = `
       ${getInfoBox('Peržiūrėsime jūsų paraišką ir su jumis susisieksime per pateiktą el. pašto adresą <strong>' + data.email + '</strong>.', 'info')}
     `
@@ -349,7 +371,19 @@ Dėkojame už jūsų paraišką!
 Gavome jūsų paraišką registruoti bendruomenę ${data.communityName}.
 `
   
-  if (data.onboardingLink) {
+  if (data.onboardingLink && data.password) {
+    textContent += `
+Jūsų paskyra sukurta! Dabar galite pradėti onboarding procesą.
+
+Prisijungimo duomenys:
+- El. paštas: ${data.email}
+- Slaptažodis: ${data.password}
+
+⚠️ Išsaugokite šiuos duomenis. Rekomenduojame pakeisti slaptažodį po pirmo prisijungimo.
+
+Pradėti onboarding: ${data.onboardingLink}
+`
+  } else if (data.onboardingLink) {
     textContent += `
 Jūsų paraiška buvo patvirtinta! Dabar galite pradėti onboarding procesą.
 
@@ -372,6 +406,58 @@ Lietuvos bendruomenių valdymo platforma
   `.trim()
   
   return { subject, html, text: textContent }
+}
+
+/**
+ * Template: Onboarding Draft Saved
+ */
+export function getOnboardingDraftSavedEmail(data: {
+  orgName: string
+  continueLink: string
+}): { subject: string; html: string; text: string } {
+  const subject = 'Onboarding juodraštis išsaugotas'
+  
+  const content = `
+    <h2 style="margin: 0 0 16px 0; color: #1e293b; font-size: 20px; font-weight: 600;">
+      Jūsų onboarding juodraštis išsaugotas
+    </h2>
+    
+    <p style="margin: 0 0 20px 0; color: #475569; font-size: 16px; line-height: 1.6;">
+      Jūsų onboarding duomenys organizacijai <strong style="color: #1e293b;">${data.orgName}</strong> buvo išsaugoti kaip juodraštis.
+    </p>
+    
+    ${getInfoBox('Galite grįžti bet kada ir tęsti užpildymą. Duomenys bus išsaugoti.', 'info')}
+    
+    ${getButton(data.continueLink, 'Tęsti onboarding', 'primary')}
+    
+    <p style="margin: 16px 0 0 0; color: #64748b; font-size: 14px; line-height: 1.6;">
+      Jei mygtukas neveikia, nukopijuokite šią nuorodą į naršyklę:<br>
+      <a href="${data.continueLink}" style="color: #3b82f6; word-break: break-all; text-decoration: underline;">${data.continueLink}</a>
+    </p>
+    
+    <p style="margin: 24px 0 0 0; color: #64748b; font-size: 14px; line-height: 1.6;">
+      Primename: organizacija bus aktyvuota tik po to, kai užbaigsite visus onboarding etapus ir pateiksite duomenis admin validacijai.
+    </p>
+  `
+  
+  const html = getEmailTemplate(content, '#3b82f6')
+  
+  const text = `
+Onboarding juodraštis išsaugotas
+
+Jūsų onboarding duomenys organizacijai ${data.orgName} buvo išsaugoti kaip juodraštis.
+
+Galite grįžti bet kada ir tęsti užpildymą. Duomenys bus išsaugoti.
+
+Tęsti onboarding: ${data.continueLink}
+
+Primename: organizacija bus aktyvuota tik po to, kai užbaigsite visus onboarding etapus ir pateiksite duomenis admin validacijai.
+
+${APP_NAME}
+Lietuvos bendruomenių valdymo platforma
+  `.trim()
+  
+  return { subject, html, text }
 }
 
 /**
