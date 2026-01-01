@@ -23,7 +23,9 @@ async function GovernanceDashboardContent({ slug }: { slug: string }) {
   }
 
   // Load governance data
-  let meetings, ruleset, userRole
+  let meetings: Awaited<ReturnType<typeof listMeetings>> = []
+  let ruleset: Awaited<ReturnType<typeof getActiveRuleset>> = null
+  let userRole: Awaited<ReturnType<typeof getMembershipRole>> = 'MEMBER'
   try {
     [meetings, ruleset, userRole] = await Promise.all([
       listMeetings(selectedOrg.membership_id),
@@ -34,7 +36,7 @@ async function GovernanceDashboardContent({ slug }: { slug: string }) {
     console.error('Error loading governance data:', error)
     meetings = []
     ruleset = null
-    userRole = 'MEMBER' as const
+    userRole = 'MEMBER'
   }
 
   const pilotMode = isPilotMode(selectedOrg.slug)
