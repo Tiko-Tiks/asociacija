@@ -115,7 +115,8 @@ export async function getLandingPageContent(): Promise<LandingPageContent> {
   const supabase = createAdminClient()
 
   // Fetch from system_config table
-  const { data: config, error } = await supabase
+  // Type assertion needed due to Supabase TypeScript inference limitations
+  const { data: config, error }: any = await supabase
     .from('system_config')
     .select('value')
     .eq('key', 'landing_page_content')
