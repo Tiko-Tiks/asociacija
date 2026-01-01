@@ -56,6 +56,8 @@ Jūsų projektas jau turi šiuos ID:
 3. Turėtumėte matyti naują workflow run'ą
 4. Jei viskas gerai, deployment bus automatiškai paleistas
 
+**Status:** ✅ Secrets pridėti - laukiama testinio commit'o
+
 ## Alternative: Vercel Dashboard Setup
 
 Jei norite naudoti Vercel webhook'ą vietoj GitHub Actions:
