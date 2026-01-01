@@ -385,3 +385,59 @@ Lietuvos bendruomenių valdymo platforma
   return { subject, html, text }
 }
 
+/**
+ * Template: Password Reset Email
+ * 
+ * Note: This template is for custom password reset flow.
+ * Currently, we use Supabase's built-in password reset which sends emails automatically.
+ * To use this template, you need to implement custom password reset flow.
+ */
+export function getPasswordResetEmail(data: {
+  email: string
+  resetUrl: string
+}): { subject: string; html: string; text: string } {
+  const subject = 'Slaptažodžio atkūrimas - Branduolys'
+  
+  const content = `
+    <h2 style="margin: 0 0 16px 0; color: #1e293b; font-size: 20px; font-weight: 600;">
+      Slaptažodžio atkūrimas
+    </h2>
+    
+    <p style="margin: 0 0 20px 0; color: #475569; font-size: 16px; line-height: 1.6;">
+      Gavome užklausą atkurti jūsų slaptažodį. Spauskite mygtuką žemiau, kad nustatytumėte naują slaptažodį.
+    </p>
+    
+    ${getInfoBox('Jei jūs nepateikėte šios užklausos, ignoruokite šį email\'ą. Jūsų slaptažodis nebus pakeistas.', 'warning')}
+    
+    ${getButton(data.resetUrl, 'Atkurti slaptažodį', 'primary')}
+    
+    <p style="margin: 24px 0 0 0; color: #64748b; font-size: 14px; line-height: 1.6;">
+      Jei mygtukas neveikia, nukopijuokite šią nuorodą į naršyklę:<br>
+      <a href="${data.resetUrl}" style="color: #3b82f6; word-break: break-all; text-decoration: underline;">${data.resetUrl}</a>
+    </p>
+    
+    <p style="margin: 24px 0 0 0; color: #64748b; font-size: 12px; line-height: 1.6;">
+      Ši nuoroda galioja 1 valandą.
+    </p>
+  `
+  
+  const html = getEmailTemplate(content, '#3b82f6')
+  
+  const text = `
+Slaptažodžio atkūrimas - Branduolys
+
+Gavome užklausą atkurti jūsų slaptažodį.
+
+Atkurti slaptažodį: ${data.resetUrl}
+
+Jei jūs nepateikėte šios užklausos, ignoruokite šį email'ą. Jūsų slaptažodis nebus pakeistas.
+
+Ši nuoroda galioja 1 valandą.
+
+${APP_NAME}
+Lietuvos bendruomenių valdymo platforma
+  `.trim()
+  
+  return { subject, html, text }
+}
+
