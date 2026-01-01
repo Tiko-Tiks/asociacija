@@ -2,7 +2,6 @@
 
 import { useState, FormEvent } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,6 +9,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageLayout } from '@/components/layout/page-layout'
+import { Logo } from '@/components/ui/logo'
+import { logoConfig } from '@/lib/logo-config'
 import {
   Dialog,
   DialogContent,
