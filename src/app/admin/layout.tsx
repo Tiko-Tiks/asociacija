@@ -28,15 +28,29 @@ export default async function AdminLayout({
   }
 
   // Get super admin IDs from environment variable
-  const superAdminIds = process.env.NEXT_PUBLIC_SUPER_ADMINS?.split(',').map(
-    (id) => id.trim()
-  ) || []
+  const superAdminIdsEnv = process.env.NEXT_PUBLIC_SUPER_ADMINS
+  const superAdminIds = superAdminIdsEnv
+    ? superAdminIdsEnv.split(',').map((id) => id.trim()).filter(Boolean)
+    : []
 
   // Check if user is in super admin list
-  const isSuperAdmin = superAdminIds.includes(user.id)
+  const isSuperAdmin = superAdminIds.length > 0 && superAdminIds.includes(user.id)
+  
+  // Also check if user email is admin@pastas.email (fallback for development)
+  const isEmailAdmin = user.email === 'admin@pastas.email'
+  
+  // Allow access if user is in super admin list OR is admin@pastas.email
+  const hasAdminAccess = isSuperAdmin || isEmailAdmin
 
   // If not super admin, return 404 (don't reveal admin route exists)
-  if (!isSuperAdmin) {
+  if (!hasAdminAccess) {
+    console.warn('Admin access denied:', {
+      userId: user.id,
+      userEmail: user.email,
+      superAdminIds,
+      isSuperAdmin,
+      isEmailAdmin,
+    })
     notFound()
   }
 
