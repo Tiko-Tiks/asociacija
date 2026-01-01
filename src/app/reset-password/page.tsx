@@ -30,13 +30,14 @@ export default async function ResetPasswordPage({
       <div className="flex min-h-[calc(100vh-80px)] items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <Image
-              src="/logo.svg"
-              alt="Bendruomenių Branduolys"
-              width={80}
-              height={80}
-              className="mx-auto mb-4"
-            />
+            <div className="flex justify-center mb-4">
+              <Logo
+                variant="icon"
+                size="xl"
+                showText={false}
+                customIconPath={logoConfig.useCustomLogos ? logoConfig.iconLogoPath : undefined}
+              />
+            </div>
             <h1 className="text-2xl font-bold text-slate-900 mb-2">Atkurti slaptažodį</h1>
             <p className="text-slate-600">Įveskite naują slaptažodį</p>
           </div>

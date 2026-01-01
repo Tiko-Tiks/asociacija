@@ -191,12 +191,11 @@ export default function RegisterCommunityPage() {
         <Card className="w-full max-w-2xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
-            <Image
-              src="/logo.svg"
-              alt="Logo"
-              width={48}
-              height={48}
-              className="h-12 w-12"
+            <Logo
+              variant="icon"
+              size="md"
+              showText={false}
+              customIconPath={logoConfig.useCustomLogos ? logoConfig.iconLogoPath : undefined}
             />
           </div>
           <CardTitle className="text-2xl">Registruoti bendruomenę</CardTitle>

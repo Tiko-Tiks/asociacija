@@ -1,9 +1,10 @@
 "use client"
 
-import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { LogIn, LogOut, UserCircle, Home } from 'lucide-react'
+import { Logo } from '@/components/ui/logo'
+import { logoConfig } from '@/lib/logo-config'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,19 +41,14 @@ export function LandingHeader({
         <div className="flex items-center justify-between">
           <Link
             href="/"
-            className="flex items-center gap-3 hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
-            <Image
-              src="/logo.svg"
-              alt="Lietuvos Bendruomenių Branduolys"
-              width={48}
-              height={48}
-              className="h-12 w-12"
+            <Logo
+              variant="full"
+              size="md"
+              showText={true}
+              customLogoPath={logoConfig.useCustomLogos ? logoConfig.fullLogoPath : undefined}
             />
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">Bendruomenių Branduolys</h1>
-              <p className="text-xs text-slate-600">Lietuvos bendruomenių platforma</p>
-            </div>
           </Link>
 
           <div className="flex items-center gap-3">
