@@ -2,7 +2,8 @@ import { redirect } from 'next/navigation'
 import { getCurrentUser, login } from '@/app/actions/auth'
 import { LoginForm } from '@/components/auth/login-form'
 import { PageLayout } from '@/components/layout/page-layout'
-import Image from 'next/image'
+import { Logo } from '@/components/ui/logo'
+import { logoConfig } from '@/lib/logo-config'
 
 export default async function LoginPage({
   searchParams,
