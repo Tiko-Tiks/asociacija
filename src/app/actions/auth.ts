@@ -214,8 +214,8 @@ export async function forgotPassword(formData: FormData) {
   const supabase = createAnonClient()
 
   // Send password reset email
-  // Determine app URL: priority: NEXT_PUBLIC_APP_URL > VERCEL_URL > localhost
-  let appUrl = 'http://localhost:3000'
+  // Determine app URL: priority: NEXT_PUBLIC_APP_URL > VERCEL_URL > default production URL
+  let appUrl = 'https://asociacija.net' // Default production URL
   
   if (process.env.NEXT_PUBLIC_APP_URL) {
     // Use explicitly set app URL (production)
@@ -231,6 +231,11 @@ export async function forgotPassword(formData: FormData) {
     } else {
       appUrl = `https://${vercelUrl}`
     }
+  }
+  
+  // In development, use localhost only if explicitly set
+  if (process.env.NODE_ENV === 'development' && !process.env.NEXT_PUBLIC_APP_URL && !process.env.VERCEL_URL) {
+    appUrl = 'http://localhost:3000'
   }
   
   console.log('Password reset redirect URL:', `${appUrl}/reset-password`)
