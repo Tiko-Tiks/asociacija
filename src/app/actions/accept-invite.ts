@@ -100,8 +100,9 @@ export async function acceptInvite(
     // If membership is SUSPENDED, reactivate it
     // CRITICAL: Use member_status (not status) per schema fix
     if (existingMembership.member_status !== MEMBERSHIP_STATUS.ACTIVE) {
-      const { error: updateError }: any = await supabase
-        .from('memberships')
+      // Type assertion needed due to Supabase TypeScript inference limitations
+      const { error: updateError }: any = await (supabase
+        .from('memberships') as any)
         .update({
           member_status: MEMBERSHIP_STATUS.ACTIVE,
           user_id: user.id,
