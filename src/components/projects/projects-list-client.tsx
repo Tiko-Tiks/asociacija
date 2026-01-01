@@ -13,17 +13,8 @@ import { Plus, FolderKanban } from "lucide-react"
 import { PROJECT_STATUS } from "@/app/domain/constants"
 import { ProjectStatus } from "@/app/domain/types"
 import Image from "next/image"
-import { createProject } from "@/app/actions/projects"
+import { createProject, type Project } from "@/app/actions/projects"
 import { useToast } from "@/components/ui/use-toast"
-
-interface Project {
-  id: string
-  title: string // Schema v15.1: projects.title (not projects.name)
-  status: ProjectStatus
-  budget: number | null
-  description: string | null
-  created_at: string
-}
 
 interface ProjectsListClientProps {
   projects: Project[]
@@ -242,9 +233,9 @@ export function ProjectsListClient({
                   )}
                 </CardHeader>
                 <CardContent>
-                  {project.budget !== null && (
+                  {project.budget_eur !== null && project.budget_eur > 0 && (
                     <p className="text-sm font-medium text-slate-900">
-                      Biudžetas: {project.budget.toFixed(2)} €
+                      Biudžetas: {project.budget_eur.toFixed(2)} €
                     </p>
                   )}
                 </CardContent>
