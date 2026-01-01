@@ -12,3 +12,5 @@ tsconfig.tsbuildinfo
 dist/
 
 .next/
+.vercel
+.env*.local

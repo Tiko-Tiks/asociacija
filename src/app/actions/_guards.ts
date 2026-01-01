@@ -1,6 +1,6 @@
 'use server'
 
-import { MEMBERSHIP_STATUS } from '@/app/domain/constants'
+import { MEMBERSHIP_STATUS, PROJECT_ROLE } from '@/app/domain/constants'
 import { MembershipStatus, ProjectStatus, ProjectRole } from '@/app/domain/types'
 import { authViolation, crossOrgViolation } from '@/app/domain/errors'
 
@@ -45,25 +45,28 @@ export async function requireAuth(supabase: any): Promise<{ id: string }> {
  * 
  * Validates:
  * - Membership exists
- * - Membership status = 'ACTIVE' (per .cursorrules 1.1)
+ * - Membership member_status = 'ACTIVE' (per .cursorrules 1.1)
  * - Membership belongs to the authenticated user (membership.user_id === user_id)
+ * 
+ * CRITICAL: Uses member_status (not status) per schema fix.
  * 
  * @param supabase - Authenticated Supabase client
  * @param membership_id - UUID of the membership
  * @param user_id - UUID of the authenticated user (from requireAuth)
- * @returns The membership object with org_id, status, user_id
+ * @returns The membership object with org_id, member_status, user_id
  * @throws Error('cross_org_violation') if validation fails
  */
 export async function loadActiveMembership(
   supabase: any,
   membership_id: string,
   user_id: string
-): Promise<{ org_id: string; status: MembershipStatus; user_id: string }> {
+): Promise<{ org_id: string; member_status: MembershipStatus; user_id: string }> {
   // Load membership by membership_id (SOURCE OF TRUTH)
   // DO NOT accept org_id from client parameters
+  // CRITICAL: Use member_status (not status) per schema fix
   const { data: membership, error: membershipError }: any = await supabase
     .from('memberships')
-    .select('org_id, status, user_id')
+    .select('org_id, member_status, user_id')
     .eq('id', membership_id)
     .single()
 
@@ -71,9 +74,10 @@ export async function loadActiveMembership(
     throwCrossOrgViolation()
   }
 
-  // Validate membership status = 'ACTIVE'
+  // Validate membership member_status = 'ACTIVE'
+  // CRITICAL: Use member_status (not status) per schema fix
   // Suspended users are NOT members (per .cursorrules 1.1)
-  if (membership.status !== MEMBERSHIP_STATUS.ACTIVE) {
+  if (membership.member_status !== MEMBERSHIP_STATUS.ACTIVE) {
     throwCrossOrgViolation()
   }
 
@@ -133,19 +137,19 @@ export async function loadProjectForMembership(
 /**
  * Loads and validates a user's role for a project.
  * 
- * Validates:
- * - Project exists (via project table query)
- * - User has access to project (via project_members table)
- * - Role is returned
+ * CRITICAL: Derives org context from PROJECT, not UI context.
+ * For pilot: Returns role directly from memberships.role (no project_members dependency).
  * 
- * Note: Assumes project_members table with (project_id, user_id, role)
- * RLS on project_members should enforce org-level access.
+ * Validates:
+ * - Project exists and extracts project.org_id (SOURCE OF TRUTH)
+ * - User has ACTIVE membership in project.org_id
+ * - Returns role from memberships.role
  * 
  * @param supabase - Authenticated Supabase client
  * @param project_id - UUID of the project
  * @param user_id - UUID of the authenticated user (from requireAuth)
- * @returns The user's role for the project
- * @throws Error('cross_org_violation') if project not found or user has no access
+ * @returns The user's role from memberships.role
+ * @throws Error('cross_org_violation') if project not found or no ACTIVE membership
  * @throws Error('auth_violation') if RLS violation (code 42501)
  */
 export async function loadProjectRole(
@@ -153,40 +157,45 @@ export async function loadProjectRole(
   project_id: string,
   user_id: string
 ): Promise<ProjectRole> {
-  // Step 1: Validate project exists and is accessible (RLS will enforce access)
+  // Step 1: Fetch project by projectId → extract project.org_id (SOURCE OF TRUTH)
   const { data: project, error: projectError }: any = await supabase
     .from('projects')
-    .select('id')
+    .select('id, org_id')
     .eq('id', project_id)
     .single()
 
   if (projectError || !project) {
-    // Check if error is due to RLS violation
     if (projectError?.code === '42501') {
       authViolation()
     }
     throwCrossOrgViolation()
   }
 
-  // Step 2: Load user's role for this project
-  // Assumes project_members table with (project_id, user_id, role)
-  // RLS on project_members should enforce that user can only see their own entries
-  // and that they're in the same org as the project
-  const { data: projectMember, error: memberError }: any = await supabase
-    .from('project_members')
-    .select('role')
-    .eq('project_id', project_id)
+  // Step 2: Fetch ACTIVE membership with role where:
+  //   user_id = auth.uid()
+  //   org_id = project.org_id
+  //   status = 'ACTIVE'
+  const { data: membership, error: membershipError }: any = await supabase
+    .from('memberships')
+    .select('id, role')
     .eq('user_id', user_id)
-    .single()
+    .eq('org_id', project.org_id)
+    .eq('status', MEMBERSHIP_STATUS.ACTIVE)
+    .maybeSingle()
 
-  if (memberError || !projectMember) {
-    // Check if error is due to RLS violation
-    if (memberError?.code === '42501') {
+  if (membershipError) {
+    if (membershipError?.code === '42501') {
       authViolation()
     }
     throwCrossOrgViolation()
   }
 
-  return projectMember.role as ProjectRole
+  // Step 3: If NO membership → throw cross_org_violation
+  if (!membership) {
+    throwCrossOrgViolation()
+  }
+
+  // Step 4: Return role from memberships.role
+  return membership.role as ProjectRole
 }
 

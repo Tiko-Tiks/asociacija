@@ -1,422 +1,396 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from './_guards'
+import { authViolation, operationFailed } from '@/app/domain/errors'
 import { revalidatePath } from 'next/cache'
-import {
-  requireAuth,
-  loadActiveMembership,
-  loadProjectForMembership,
-  loadProjectRole,
-} from './_guards'
-import { MEMBERSHIP_STATUS, PROJECT_STATUS } from '@/app/domain/constants'
-import { MembershipStatus, ProjectStatus } from '@/app/domain/types'
-import { authViolation, crossOrgViolation, operationFailed } from '@/app/domain/errors'
-import {
-  canEditProject,
-  canDeleteProject,
-  canArchiveProject,
-} from '@/app/domain/permissions'
 
-/**
- * Internal error helper for cross-org violations.
- * Follows .cursorrules: Use stable error codes for deterministic error handling.
- */
-function throwCrossOrgViolation(): never {
-  crossOrgViolation()
+// ==================================================
+// TYPES
+// ==================================================
+
+export type ProjectStatus = 'PLANNING' | 'FUNDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+export type ContributionKind = 'MONEY' | 'IN_KIND' | 'WORK'
+export type ContributionStatus = 'PLEDGED' | 'RECEIVED' | 'CANCELLED'
+
+export interface Project {
+  id: string
+  org_id: string
+  idea_id: string | null
+  title: string
+  description: string | null
+  status: ProjectStatus
+  budget_eur: number
+  created_by: string | null
+  created_at: string
+  funding_opened_at: string
+  completed_at: string | null
 }
 
-/**
- * Server Action to create a project.
- * 
- * Follows .cursorrules v17.2-OSMIUM-PLATINUM:
- * - Uses authenticated user client (no service_role)
- * - Derives org_id from DB (source of truth)
- * - Validates membership status = 'ACTIVE'
- * - Enforces cross-org validation
- * 
- * @param membership_id - UUID of the membership (must be ACTIVE)
- * @param name - Name of the project
- * @returns The created project id
- * @throws Error('cross_org_violation') if membership validation fails
- * @throws Error if membership not found or not active
- */
-export async function createProject(
-  membership_id: string,
-  name: string
-): Promise<{ id: string }> {
-  // Get authenticated Supabase client (respects RLS, uses auth.uid())
-  const supabase = await createClient()
-
-  // Step 1: Authenticate user via auth.uid()
-  const user = await requireAuth(supabase)
-
-  // Step 2: Load and validate active membership (SOURCE OF TRUTH)
-  // DO NOT accept org_id from client parameters
-  const membership = await loadActiveMembership(supabase, membership_id, user.id)
-
-  // Step 3: Insert project with org_id derived from DB (not from client)
-  // RLS policies will be enforced by Supabase
-  const initialStatus: ProjectStatus = PROJECT_STATUS.DRAFT
-  const { data: project, error: insertError }: any = await (supabase
-    .from('projects') as any)
-    .insert({
-      org_id: membership.org_id, // Derived from DB, NOT from client
-      membership_id: membership_id,
-      name: name.trim(),
-      status: initialStatus, // Assuming default status
-    })
-    .select('id')
-    .single()
-
-  if (insertError || !project) {
-    // Check if error is due to RLS violation
-    if (insertError?.code === '42501') {
-      authViolation()
-    }
-    operationFailed()
-  }
-
-  // Revalidate relevant paths (optional, for cache invalidation)
-  revalidatePath('/dashboard/projects')
-
-  return { id: project.id }
+export interface ProjectContribution {
+  id: string
+  project_id: string
+  org_id: string
+  membership_id: string
+  kind: ContributionKind
+  status: ContributionStatus
+  money_amount_eur: number | null
+  in_kind_items: any | null
+  work_offer: any | null
+  note: string | null
+  created_at: string
+  updated_at: string
 }
 
+export interface ProjectFundingTotals {
+  project_id: string
+  org_id: string
+  goal_budget_eur: number
+  pledged_money_eur: number
+  received_money_eur: number
+  pledged_in_kind_count: number
+  pledged_work_hours: number
+  progress_ratio: number
+}
+
+export interface PledgeMoneyResult {
+  ok: boolean
+  reason: string
+  contribution_id?: string
+}
+
+export interface PledgeInKindResult {
+  ok: boolean
+  reason: string
+  contribution_id?: string
+}
+
+export interface PledgeWorkResult {
+  ok: boolean
+  reason: string
+  contribution_id?: string
+}
+
+export interface UpdateContributionStatusResult {
+  ok: boolean
+  reason: string
+}
+
+// ==================================================
+// SERVER ACTIONS
+// ==================================================
+
 /**
- * Server Action to list projects for the current user.
- * 
- * Follows .cursorrules v17.2-OSMIUM-PLATINUM:
- * - Uses authenticated user client (no service_role)
- * - Derives org scope from memberships table (source of truth)
- * - Only returns projects from orgs where user has ACTIVE membership
- * - No select('*') - selects only necessary fields
- * 
- * @returns List of projects the user is allowed to see
- * @throws Error if user is not authenticated
+ * List projects for an organization
  */
-export async function listProjects(): Promise<
-  Array<{ id: string; name: string; org_id: string }>
-> {
-  // Get authenticated Supabase client (respects RLS, uses auth.uid())
+export async function listProjects(orgId: string): Promise<Project[]> {
   const supabase = await createClient()
+  await requireAuth(supabase)
 
-  // Step 1: Authenticate user via auth.uid()
-  const user = await requireAuth(supabase)
-
-  // Step 2: Derive accessible org_ids from memberships table (SOURCE OF TRUTH)
-  // DO NOT accept org_id from client parameters
-  // Only get orgs where user has ACTIVE membership
-  const { data: memberships, error: membershipsError }: any = await supabase
-    .from('memberships')
-    .select('org_id') // Only select org_id, not select('*')
-    .eq('user_id', user.id)
-    .eq('status', MEMBERSHIP_STATUS.ACTIVE) // Only ACTIVE memberships (per .cursorrules 1.1)
-
-  if (membershipsError) {
-    operationFailed()
-  }
-
-  // If user has no active memberships, return empty array
-  if (!memberships || memberships.length === 0) {
-    return []
-  }
-
-  // Extract unique org_ids from memberships
-  const orgIds = [...new Set(memberships.map((m: any) => m.org_id))]
-
-  // Step 3: Query projects from accessible orgs
-  // RLS policies will enforce additional security
-  // Select only necessary fields: id, name, org_id (NOT select('*'))
-  const { data: projects, error: projectsError }: any = await supabase
+  const { data, error } = await supabase
     .from('projects')
-    .select('id, name, org_id') // Explicit field selection, not select('*')
-    .in('org_id', orgIds)
+    .select('*')
+    .eq('org_id', orgId)
     .order('created_at', { ascending: false })
 
-  if (projectsError) {
-    // Check if error is due to RLS violation
-    if (projectsError.code === '42501') {
+  if (error) {
+    if (error.code === '42501') {
       authViolation()
     }
+    console.error('Error listing projects:', error)
     operationFailed()
   }
 
-  return projects || []
+  return (data || []).map((project: any) => ({
+    id: project.id,
+    org_id: project.org_id,
+    idea_id: project.idea_id,
+    title: project.title,
+    description: project.description,
+    status: project.status as ProjectStatus,
+    budget_eur: parseFloat(project.budget_eur) || 0,
+    created_by: project.created_by,
+    created_at: project.created_at,
+    funding_opened_at: project.funding_opened_at,
+    completed_at: project.completed_at,
+  }))
 }
 
 /**
- * Server Action to update a project name.
- * 
- * Follows .cursorrules v17.2-OSMIUM-PLATINUM:
- * - Uses authenticated user client (no service_role)
- * - Derives org_id from DB (source of truth)
- * - Validates membership status = 'ACTIVE'
- * - Enforces cross-org validation
- * 
- * @param project_id - UUID of the project to update
- * @param membership_id - UUID of the membership (must be ACTIVE and match project org)
- * @param name - New name for the project
- * @returns The updated project id
- * @throws Error('cross_org_violation') if validation fails
- * @throws Error('auth_violation') if authentication/authorization fails
- * @throws Error('operation_failed') if update fails
+ * Get project by ID
  */
-export async function updateProjectName(
-  project_id: string,
-  membership_id: string,
-  name: string
-): Promise<{ id: string }> {
-  // Get authenticated Supabase client (respects RLS, uses auth.uid())
+export async function getProject(projectId: string): Promise<Project | null> {
   const supabase = await createClient()
+  await requireAuth(supabase)
 
-  // Step 1: Authenticate user via auth.uid()
-  const user = await requireAuth(supabase)
+  const { data, error } = await supabase.from('projects').select('*').eq('id', projectId).maybeSingle()
 
-  // Step 2: Load and validate active membership (SOURCE OF TRUTH)
-  // DO NOT accept org_id from client parameters
-  const membership = await loadActiveMembership(supabase, membership_id, user.id)
-
-  // Step 3: Load and validate project belongs to same org
-  const project = await loadProjectForMembership(
-    supabase,
-    project_id,
-    membership.org_id
-  )
-
-  // Step 4: Load user's role and check permission to edit
-  const role = await loadProjectRole(supabase, project_id, user.id)
-  if (!canEditProject(role)) {
-    throwCrossOrgViolation()
-  }
-
-  // Update only the project name (trimmed)
-  // Do not update org_id, membership_id, or status
-  const { data: updatedProject, error: updateError }: any = await (supabase
-    .from('projects') as any)
-    .update({ name: name.trim() })
-    .eq('id', project_id)
-    .select('id')
-    .single()
-
-  if (updateError || !updatedProject) {
-    // Check if error is due to RLS violation
-    if (updateError?.code === '42501') {
+  if (error) {
+    if (error.code === '42501') {
       authViolation()
     }
-    operationFailed()
+    console.error('Error fetching project:', error)
+    return null
   }
 
-  // Revalidate relevant paths (optional, for cache invalidation)
-  revalidatePath('/dashboard/projects')
+  if (!data) return null
 
-  return { id: updatedProject.id }
+  return {
+    id: data.id,
+    org_id: data.org_id,
+    idea_id: data.idea_id,
+    title: data.title,
+    description: data.description,
+    status: data.status as ProjectStatus,
+    budget_eur: parseFloat(data.budget_eur) || 0,
+    created_by: data.created_by,
+    created_at: data.created_at,
+    funding_opened_at: data.funding_opened_at,
+    completed_at: data.completed_at,
+  }
 }
 
 /**
- * Server Action to delete a project.
- * 
- * Follows .cursorrules v17.2-OSMIUM-PLATINUM:
- * - Uses authenticated user client (no service_role)
- * - Derives org_id from DB (source of truth)
- * - Validates membership status = 'ACTIVE'
- * - Enforces cross-org validation
- * 
- * @param project_id - UUID of the project to delete
- * @param membership_id - UUID of the membership (must be ACTIVE and match project org)
- * @returns The deleted project id
- * @throws Error('cross_org_violation') if validation fails
- * @throws Error('auth_violation') if authentication/authorization fails
- * @throws Error('operation_failed') if delete fails
+ * Get project funding totals
  */
-export async function deleteProject(
-  project_id: string,
-  membership_id: string
-): Promise<{ id: string }> {
-  // Get authenticated Supabase client (respects RLS, uses auth.uid())
+export async function getProjectFundingTotals(projectId: string): Promise<ProjectFundingTotals | null> {
   const supabase = await createClient()
+  await requireAuth(supabase)
 
-  // Step 1: Authenticate user via auth.uid()
-  const user = await requireAuth(supabase)
+  const { data, error } = await supabase
+    .from('project_funding_totals')
+    .select('*')
+    .eq('project_id', projectId)
+    .maybeSingle()
 
-  // Step 2: Load and validate active membership (SOURCE OF TRUTH)
-  // DO NOT accept org_id from client parameters
-  const membership = await loadActiveMembership(supabase, membership_id, user.id)
-
-  // Step 3: Load and validate project belongs to same org
-  const project = await loadProjectForMembership(
-    supabase,
-    project_id,
-    membership.org_id
-  )
-
-  // Step 4: Load user's role and check permission to delete
-  const role = await loadProjectRole(supabase, project_id, user.id)
-  if (!canDeleteProject(role)) {
-    throwCrossOrgViolation()
-  }
-
-  // Delete the project by project_id only
-  // Do not delete related records - assume DB triggers handle cascading or audit
-  const { data: deletedProject, error: deleteError }: any = await supabase
-    .from('projects')
-    .delete()
-    .eq('id', project_id)
-    .select('id')
-    .single()
-
-  if (deleteError || !deletedProject) {
-    // Check if error is due to RLS violation
-    if (deleteError?.code === '42501') {
+  if (error) {
+    if (error.code === '42501') {
       authViolation()
     }
-    operationFailed()
+    console.error('Error fetching funding totals:', error)
+    return null
   }
 
-  // Revalidate relevant paths (optional, for cache invalidation)
-  revalidatePath('/dashboard/projects')
+  if (!data) return null
 
-  return { id: deletedProject.id }
+  return {
+    project_id: data.project_id,
+    org_id: data.org_id,
+    goal_budget_eur: parseFloat(data.goal_budget_eur) || 0,
+    pledged_money_eur: parseFloat(data.pledged_money_eur) || 0,
+    received_money_eur: parseFloat(data.received_money_eur) || 0,
+    pledged_in_kind_count: data.pledged_in_kind_count || 0,
+    pledged_work_hours: parseFloat(data.pledged_work_hours) || 0,
+    progress_ratio: parseFloat(data.progress_ratio) || 0,
+  }
 }
 
 /**
- * Server Action to archive a project.
- * 
- * Follows .cursorrules v17.2-OSMIUM-PLATINUM:
- * - Uses authenticated user client (no service_role)
- * - Derives org_id from DB (source of truth)
- * - Validates membership status = 'ACTIVE'
- * - Enforces cross-org validation
- * 
- * @param project_id - UUID of the project to archive
- * @param membership_id - UUID of the membership (must be ACTIVE and match project org)
- * @returns The archived project id
- * @throws Error('cross_org_violation') if validation fails
- * @throws Error('auth_violation') if authentication/authorization fails
- * @throws Error('operation_failed') if archive fails
+ * List contributions for a project
  */
-export async function archiveProject(
-  project_id: string,
-  membership_id: string
-): Promise<{ id: string }> {
-  // Get authenticated Supabase client (respects RLS, uses auth.uid())
+export async function listProjectContributions(projectId: string): Promise<ProjectContribution[]> {
   const supabase = await createClient()
+  await requireAuth(supabase)
 
-  // Step 1: Authenticate user via auth.uid()
-  const user = await requireAuth(supabase)
+  const { data, error } = await supabase
+    .from('project_contributions')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false })
 
-  // Step 2: Load and validate active membership (SOURCE OF TRUTH)
-  // DO NOT accept org_id from client parameters
-  const membership = await loadActiveMembership(supabase, membership_id, user.id)
-
-  // Step 3: Load and validate project belongs to same org
-  const project = await loadProjectForMembership(
-    supabase,
-    project_id,
-    membership.org_id
-  )
-
-  // Step 4: Load user's role and check permission to archive
-  const role = await loadProjectRole(supabase, project_id, user.id)
-  if (!canArchiveProject(role)) {
-    throwCrossOrgViolation()
-  }
-
-  // Update only the project status to 'ARCHIVED'
-  // Do not update org_id or membership_id
-  const archivedStatus: ProjectStatus = PROJECT_STATUS.ARCHIVED
-  const { data: archivedProject, error: updateError }: any = await (supabase
-    .from('projects') as any)
-    .update({ status: archivedStatus })
-    .eq('id', project_id)
-    .select('id')
-    .single()
-
-  if (updateError || !archivedProject) {
-    // Check if error is due to RLS violation
-    if (updateError?.code === '42501') {
+  if (error) {
+    if (error.code === '42501') {
       authViolation()
     }
+    console.error('Error listing contributions:', error)
     operationFailed()
   }
 
-  // Revalidate relevant paths (optional, for cache invalidation)
-  revalidatePath('/dashboard/projects')
-
-  return { id: archivedProject.id }
+  return (data || []).map((contrib: any) => ({
+    id: contrib.id,
+    project_id: contrib.project_id,
+    org_id: contrib.org_id,
+    membership_id: contrib.membership_id,
+    kind: contrib.kind as ContributionKind,
+    status: contrib.status as ContributionStatus,
+    money_amount_eur: contrib.money_amount_eur ? parseFloat(contrib.money_amount_eur) : null,
+    in_kind_items: contrib.in_kind_items,
+    work_offer: contrib.work_offer,
+    note: contrib.note,
+    created_at: contrib.created_at,
+    updated_at: contrib.updated_at,
+  }))
 }
 
 /**
- * Server Action to restore an archived project.
- * 
- * Follows .cursorrules v17.2-OSMIUM-PLATINUM:
- * - Uses authenticated user client (no service_role)
- * - Derives org_id from DB (source of truth)
- * - Validates membership status = 'ACTIVE'
- * - Enforces cross-org validation
- * - Validates project status = 'ARCHIVED' before restore
- * 
- * @param project_id - UUID of the project to restore
- * @param membership_id - UUID of the membership (must be ACTIVE and match project org)
- * @returns The restored project id
- * @throws Error('cross_org_violation') if validation fails
- * @throws Error('auth_violation') if authentication/authorization fails
- * @throws Error('operation_failed') if project is not archived or update fails
+ * Pledge money
  */
-export async function restoreProject(
-  project_id: string,
-  membership_id: string
-): Promise<{ id: string }> {
-  // Get authenticated Supabase client (respects RLS, uses auth.uid())
+export async function pledgeMoney(
+  projectId: string,
+  amountEur: number,
+  note: string | null = null
+): Promise<PledgeMoneyResult> {
   const supabase = await createClient()
+  await requireAuth(supabase)
 
-  // Step 1: Authenticate user via auth.uid()
-  const user = await requireAuth(supabase)
+  const { data, error } = await supabase.rpc('pledge_money', {
+    p_project_id: projectId,
+    p_amount_eur: amountEur,
+    p_note: note,
+  })
 
-  // Step 2: Load and validate active membership (SOURCE OF TRUTH)
-  // DO NOT accept org_id from client parameters
-  const membership = await loadActiveMembership(supabase, membership_id, user.id)
-
-  // Step 3: Load and validate project belongs to same org (with status field)
-  const project = await loadProjectForMembership(
-    supabase,
-    project_id,
-    membership.org_id,
-    'id, org_id, status'
-  )
-
-  // Step 4: Validate project status is ARCHIVED (can only restore archived projects)
-  const expectedArchivedStatus: ProjectStatus = PROJECT_STATUS.ARCHIVED
-  if (project.status !== expectedArchivedStatus) {
-    operationFailed()
-  }
-
-  // Step 5: Load user's role and check permission to archive (restore requires same permission as archive)
-  const role = await loadProjectRole(supabase, project_id, user.id)
-  if (!canArchiveProject(role)) {
-    throwCrossOrgViolation()
-  }
-
-  // Step 6: Restore project by updating status to 'ACTIVE'
-  // Do not update org_id or membership_id
-  const activeStatus: ProjectStatus = PROJECT_STATUS.ACTIVE
-  const { data: restored, error: updateError }: any = await (supabase
-    .from('projects') as any)
-    .update({ status: activeStatus })
-    .eq('id', project_id)
-    .select('id')
-    .single()
-
-  if (updateError || !restored) {
-    // Check if error is due to RLS violation
-    if (updateError?.code === '42501') {
+  if (error) {
+    console.error('Error pledging money:', error)
+    if (error.code === '42501') {
       authViolation()
     }
-    operationFailed()
+    return {
+      ok: false,
+      reason: 'OPERATION_FAILED',
+    }
   }
 
-  // Revalidate relevant paths (optional, for cache invalidation)
-  revalidatePath('/dashboard/projects')
+  const result = data?.[0]
+  if (!result) {
+    return {
+      ok: false,
+      reason: 'OPERATION_FAILED',
+    }
+  }
 
-  return { id: restored.id }
+  revalidatePath('/dashboard', 'layout')
+  return {
+    ok: result.ok,
+    reason: result.reason,
+    contribution_id: result.contribution_id,
+  }
 }
 
+/**
+ * Pledge in-kind items
+ */
+export async function pledgeInKind(
+  projectId: string,
+  items: any[],
+  note: string | null = null
+): Promise<PledgeInKindResult> {
+  const supabase = await createClient()
+  await requireAuth(supabase)
+
+  const { data, error } = await supabase.rpc('pledge_in_kind', {
+    p_project_id: projectId,
+    p_items: items,
+    p_note: note,
+  })
+
+  if (error) {
+    console.error('Error pledging in-kind:', error)
+    if (error.code === '42501') {
+      authViolation()
+    }
+    return {
+      ok: false,
+      reason: 'OPERATION_FAILED',
+    }
+  }
+
+  const result = data?.[0]
+  if (!result) {
+    return {
+      ok: false,
+      reason: 'OPERATION_FAILED',
+    }
+  }
+
+  revalidatePath('/dashboard', 'layout')
+  return {
+    ok: result.ok,
+    reason: result.reason,
+    contribution_id: result.contribution_id,
+  }
+}
+
+/**
+ * Pledge work
+ */
+export async function pledgeWork(
+  projectId: string,
+  work: { type: string; hours: number; available_dates?: string[]; notes?: string },
+  note: string | null = null
+): Promise<PledgeWorkResult> {
+  const supabase = await createClient()
+  await requireAuth(supabase)
+
+  const { data, error } = await supabase.rpc('pledge_work', {
+    p_project_id: projectId,
+    p_work: work,
+    p_note: note,
+  })
+
+  if (error) {
+    console.error('Error pledging work:', error)
+    if (error.code === '42501') {
+      authViolation()
+    }
+    return {
+      ok: false,
+      reason: 'OPERATION_FAILED',
+    }
+  }
+
+  const result = data?.[0]
+  if (!result) {
+    return {
+      ok: false,
+      reason: 'OPERATION_FAILED',
+    }
+  }
+
+  revalidatePath('/dashboard', 'layout')
+  return {
+    ok: result.ok,
+    reason: result.reason,
+    contribution_id: result.contribution_id,
+  }
+}
+
+/**
+ * Update contribution status (OWNER/BOARD only)
+ */
+export async function updateContributionStatus(
+  contributionId: string,
+  status: ContributionStatus
+): Promise<UpdateContributionStatusResult> {
+  const supabase = await createClient()
+  await requireAuth(supabase)
+
+  const { data, error } = await supabase.rpc('update_contribution_status', {
+    p_contribution_id: contributionId,
+    p_status: status,
+  })
+
+  if (error) {
+    console.error('Error updating contribution status:', error)
+    if (error.code === '42501') {
+      authViolation()
+    }
+    return {
+      ok: false,
+      reason: 'OPERATION_FAILED',
+    }
+  }
+
+  const result = data?.[0]
+  if (!result) {
+    return {
+      ok: false,
+      reason: 'OPERATION_FAILED',
+    }
+  }
+
+  revalidatePath('/dashboard', 'layout')
+  return {
+    ok: result.ok,
+    reason: result.reason,
+  }
+}

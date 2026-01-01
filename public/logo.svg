@@ -1,0 +1,41 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Central Core -->
+  <circle cx="100" cy="100" r="15" fill="#1e40af"/>
+  <circle cx="100" cy="100" r="8" fill="#3b82f6"/>
+  
+  <!-- Outer ring of 8 figures -->
+  <!-- Top figures (lighter blue) -->
+  <g transform="translate(100, 100)">
+    <!-- Top -->
+    <circle cx="0" cy="-50" r="8" fill="#60a5fa"/>
+    <line x1="0" y1="0" x2="0" y2="-42" stroke="#3b82f6" stroke-width="2"/>
+    <!-- Top-right -->
+    <circle cx="35" cy="-35" r="8" fill="#1e40af"/>
+    <line x1="0" y1="0" x2="35" y2="-35" stroke="#3b82f6" stroke-width="2"/>
+    <!-- Right -->
+    <circle cx="50" cy="0" r="8" fill="#60a5fa"/>
+    <line x1="0" y1="0" x2="42" y2="0" stroke="#3b82f6" stroke-width="2"/>
+    <!-- Bottom-right -->
+    <circle cx="35" cy="35" r="8" fill="#1e40af"/>
+    <line x1="0" y1="0" x2="35" y2="35" stroke="#3b82f6" stroke-width="2"/>
+    <!-- Bottom -->
+    <circle cx="0" cy="50" r="8" fill="#60a5fa"/>
+    <line x1="0" y1="0" x2="0" y2="42" stroke="#3b82f6" stroke-width="2"/>
+    <!-- Bottom-left -->
+    <circle cx="-35" cy="35" r="8" fill="#1e40af"/>
+    <line x1="0" y1="0" x2="-35" y2="35" stroke="#3b82f6" stroke-width="2"/>
+    <!-- Left -->
+    <circle cx="-50" cy="0" r="8" fill="#60a5fa"/>
+    <line x1="0" y1="0" x2="-42" y2="0" stroke="#3b82f6" stroke-width="2"/>
+    <!-- Top-left -->
+    <circle cx="-35" cy="-35" r="8" fill="#1e40af"/>
+    <line x1="0" y1="0" x2="-35" y2="-35" stroke="#3b82f6" stroke-width="2"/>
+  </g>
+  
+  <!-- Extended figures (lighter blue) -->
+  <circle cx="70" cy="100" r="8" fill="#60a5fa"/>
+  <line x1="58" y1="100" x2="62" y2="100" stroke="#3b82f6" stroke-width="2"/>
+  <circle cx="130" cy="100" r="8" fill="#60a5fa"/>
+  <line x1="142" y1="100" x2="138" y2="100" stroke="#3b82f6" stroke-width="2"/>
+</svg>
+

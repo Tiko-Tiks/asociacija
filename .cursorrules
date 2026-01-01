@@ -1,113 +1,122 @@
-# PROJECT: Community Core (Bendruomenių Branduolys)
-# ARCHITECTURE: v17.2-OSMIUM-PLATINUM (Final Production Standard)
-# COMPATIBILITY: SQL Schema v15.1 (Code Freeze)
-# PHILOSOPHY: "Invisible OS" | "Constitution First" | "Strict Security"
+# ==================================================
+# PROJECT: BRANDUOLYS (Community OS)
+# MODE: PRODUCTION / GOVERNANCE
+# AUDIT MODE: SOFT (DOCUMENTED)
+# ==================================================
 
-YOU ARE AN EXPERT SENIOR SOFTWARE ARCHITECT AND LEAD DEVELOPER.
-You are building a secure, multi-tenant SaaS for community management.
-Your implementation MUST align perfectly with the SQL Schema v15.1.
+You are working on an institutional governance platform.
+This is NOT a startup MVP, CRUD app, or growth product.
 
-### META-INSTRUCTIONS
-1. **Security is Paramount:** Never bypass RLS. No `service_role` clients in user-facing actions.
-2. **Constitution as Code:** Governance rules are legal contracts. Precision (dates, counts) must be exact.
-3. **Accessibility First:** All UI components MUST pass WCAG 2.1 AA.
-4. **Data Integrity:** Explicit Cross-Org Validation Contract enforced by Automation.
+--------------------------------------------------
+CORE PHILOSOPHY (NON-NEGOTIABLE)
+--------------------------------------------------
 
----
+1. CONSTITUTION FIRST
+- Law and procedure override convenience.
+- No technical or UI logic may bypass legal constraints.
+- All critical actions must be explainable, reviewable, and traceable.
 
-## 1. CORE SECURITY INVARIANTS (CRITICAL)
+2. PHYSICAL PRIMACY
+- The system does NOT create legitimacy.
+- The system registers decisions made in the physical world.
+- Never simulate quorum, voting outcomes, or authority.
 
-### 1.1 RLS & Application Discipline
-* **Service Role BAN:** User-facing Server Actions and API routes MUST NOT use the `service_role` (admin) client. Use the authenticated user client to respect RLS.
-* **Profiles Visibility (The "Select" Rule):** The `profiles` table RLS allows `SELECT (true)`.
-    * **CONSTRAINT:** Public queries MUST NEVER use `select('*')` on `profiles`.
-    * **CI/LINT RULE:** Any usage of `select('*')` on profiles in **SERVER-SIDE code** (Actions/Route Handlers) must be treated as a build failure. (Client code must not query DB directly anyway).
-    * **MANDATE:** Application Layer MUST strictly select ONLY `id` and `full_name`. `email` is forbidden in public contexts.
-* **Helper Semantics (`is_member_of`):**
-    * Must return `boolean`, never throw exception.
-    * Must strictly check `status = 'ACTIVE'`. Suspended users are NOT members.
+3. EXTERNAL GUARDIAN
+- The platform acts as a procedural lock and auditor.
+- Unilateral changes to constitutional parameters are forbidden.
 
-### 1.2 Function Hygiene
-* **Search Path:** EVERY `SECURITY DEFINER` function MUST include `SET search_path = public, pg_temp;`.
-* **Schema Qualification:** Inside these functions, all table/function references MUST be schema-qualified (e.g., `public.memberships`).
-* **Context:** Always assume `auth.uid()` is the actor.
+--------------------------------------------------
+DATA MODEL RULES
+--------------------------------------------------
 
-### 1.3 Cross-Org Validation Contract
-Since v15.1 lacks composite FKs, mutating RPCs/Actions MUST perform explicit checks:
-1.  **Source of Truth:** Derive `target_org_id` from the target DB record, NOT from client parameters.
-2.  **Relation Check:** Verify secondary entities belong to the same org.
-3.  **Violation:** If mismatch -> Throw a structured error.
-    * **Convention:** Use a stable error code/name (e.g., `throw new Error('cross_org_violation')`) so Tests and UI can catch it deterministically (not just by parsing fuzzy message strings).
-4.  **Testing:** Negative tests must prove that cross-org IDs fail.
+4. ROLES VS POSITIONS
+- `role` (OWNER / MEMBER) = technical access only.
+- Organizational authority is expressed ONLY via `positions`.
+- Never infer real-world authority from `role`.
 
----
+5. MEMBERSHIP LIFECYCLE
+- Members are NEVER deleted.
+- Valid lifecycle:
+  PENDING → ACTIVE → SUSPENDED → LEFT
+- Status changes REQUIRE:
+  - explicit reason
+  - audit log entry (see Audit Mode)
 
-## 2. DATABASE & SCHEMA RULES
+6. RESOLUTIONS ARE LEGAL ACTS
+- Official decisions MUST use `resolutions`.
+- Projects are operational artifacts, not legal decisions.
+- APPROVED resolutions are immutable.
 
-### 2.1 Enums & Types
-* **Membership Status:** `ACTIVE` (Counted), `SUSPENDED` (Not Counted), `LEFT` (Not Counted).
-* **Quorum Logic:** Based on **Attendance** (unique active members).
-    * **Formula:** `(attended_count / total_active_members) > threshold`.
-    * **Note:** Strictly greater (`>`).
+--------------------------------------------------
+AUDIT & TRACEABILITY
+--------------------------------------------------
 
-### 2.2 Audit Discipline
-* **Write-Only:** `business_events` supports `INSERT` only. NO `UPDATE`/`DELETE`.
-* **Visibility:** `SELECT` allowed only for Platform Admins (RLS).
-* **Payload:** Must include `actor_id` and derived `org_id`.
+7. AUDIT IS MANDATORY
+- The following actions MUST attempt to write to `audit_logs`:
+  - membership status change
+  - position assignment
+  - resolution approval / rejection
+  - system configuration change
 
----
+7a. AUDIT FAILURE — SOFT MODE (APPROVED)
+- Audit logging is mandatory but not a transaction blocker.
+- If audit insertion fails due to technical reasons:
+  - the primary operation MAY succeed
+  - the failure MUST be:
+    - explicitly logged (console.error)
+    - surfaced for monitoring / incident review
+- Silent audit failures are FORBIDDEN.
+- Repeated audit failures constitute a critical incident.
 
-## 3. BUSINESS LOGIC ENGINES
+--------------------------------------------------
+ERROR HANDLING
+--------------------------------------------------
 
-### 3.1 Financial Engine
-* **Source:** `invoices` table.
-* **Logic:** `generate_annual_invoices()` RPC & `mark_overdue_invoices()` Schedule.
+8. NO SILENT FAILS
+- Errors must never be swallowed.
+- RLS blocks must surface as explicit domain errors (e.g. `rls_blocked`).
+- UI must reflect failure states clearly.
 
-### 3.2 Governance Engine
-* **Notice Periods:** Valid only if `scheduled_at::date >= (current_date + notice_days)`.
-* **Timezone:** `current_date` refers to DB Server time.
+--------------------------------------------------
+IMPLEMENTATION CONSTRAINTS
+--------------------------------------------------
 
-### 3.3 Operational Engine
-* **Projects:** Require Evidence (`media_items` category `AFTER`) to CLOSE.
-* **Triggers:**
-    * **Idempotency Rule:** Side-effects must be keyed by `(event_type, object_id)` uniqueness to prevent retry storms or double notifications.
-    * Must not trigger network calls.
+9. SERVER ACTIONS ONLY
+- All state changes MUST go through Server Actions.
+- No direct client-side inserts, updates, or deletes.
+- Governance logic may NEVER live only in UI.
 
----
+10. IMMUTABILITY
+- Approved resolutions cannot be edited.
+- Audit logs are append-only.
+- Historical data must be preserved.
 
-## 4. FRONTEND & UX GUIDELINES
+--------------------------------------------------
+AI USAGE CONSTRAINTS
+--------------------------------------------------
 
-### 4.1 Accessibility (WCAG 2.1 AA)
-* **Contrast:** 4.5:1 ratio.
-* **Focus:** Visible focus states required.
+11. AI IS ADVISORY ONLY
+- AI never decides.
+- AI never auto-approves.
+- AI outputs require explicit human confirmation.
 
-### 4.2 Error Classification
-* **RLS/Auth Error (42501):** Display "Access Denied".
-* **Cross Org Violation:** Display "Invalid Resource Reference".
-* **System Error (500):** Display "Retry".
+--------------------------------------------------
+PROHIBITIONS
+--------------------------------------------------
 
----
+12. FORBIDDEN ACTIONS
+- No hidden admin overrides.
+- No permission auto-escalation.
+- No backdoors, bypass flags, or emergency shortcuts.
+- Do not refactor working systems without explicit instruction.
 
-## 5. TECH STACK SPECIFICS
-* **Framework:** Next.js 14 (App Router).
-* **Database:** Supabase (PostgreSQL).
-* **Server Actions:**
-    * **Authorization:** Use `auth.uid()`.
-    * **Role Check:** Validate membership status is `ACTIVE`.
+--------------------------------------------------
+DEFAULT BEHAVIOR
+--------------------------------------------------
 
----
+13. IF UNCERTAIN
+- Ask for clarification.
+- Do NOT assume intent.
+- Prefer legality, safety, and traceability over UX shortcuts.
 
-## 6. DEVELOPMENT WORKFLOW
-1.  **Check Schema:** Before writing code, check `schema.sql`.
-2.  **Check Policies:** Can the user actually do this?
-3.  **Use RPCs:** Prefer `supabase.rpc()` for complex logic.
-
----
-
-### DEPLOYMENT CHECKLIST
-* [ ] RLS Policies enabled on ALL tables.
-* [ ] Triggers active.
-* [ ] `search_path` set on Security Definer functions.
-* [ ] Tests cover `cross_org_violation` scenarios.
-* [ ] CI pipeline fails on `profiles.select('*')` in server code.
-
+END OF RULES

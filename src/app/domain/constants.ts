@@ -4,8 +4,10 @@ export const MEMBERSHIP_STATUS = {
 } as const
 
 export const PROJECT_STATUS = {
-  DRAFT: 'DRAFT',
+  IDEA: 'IDEA',
+  APPROVED: 'APPROVED',
   ACTIVE: 'ACTIVE',
+  CLOSED: 'CLOSED',
   ARCHIVED: 'ARCHIVED',
 } as const
 
@@ -13,6 +15,7 @@ export const ERROR_CODE = {
   AUTH: 'auth_violation',
   CROSS_ORG: 'cross_org_violation',
   OPERATION_FAILED: 'operation_failed',
+  ACCESS_DENIED: 'access_denied',
 } as const
 
 export const PROJECT_ROLE = {
@@ -27,3 +30,64 @@ export const PROJECT_AUDIT_ACTION = {
   MEMBER_REMOVED: 'MEMBER_REMOVED',
 } as const
 
+export const INVOICE_STATUS = {
+  PAID: 'PAID',
+  SENT: 'SENT',
+  OVERDUE: 'OVERDUE',
+} as const
+
+export const MEMBERSHIP_ROLE = {
+  OWNER: 'OWNER',
+  ADMIN: 'ADMIN',
+  CHAIR: 'CHAIR',
+  MEMBER: 'MEMBER',
+} as const
+
+export const MEDIA_CATEGORY = {
+  BEFORE: 'BEFORE',
+  AFTER: 'AFTER',
+  PROTOCOL: 'PROTOCOL',
+  DESCRIPTION: 'DESCRIPTION',
+} as const
+
+export const MEDIA_OBJECT_TYPE = {
+  PROJECT: 'PROJECT',
+  MEETING: 'MEETING',
+} as const
+
+export const RESOLUTION_STATUS = {
+  DRAFT: 'DRAFT',
+  PROPOSED: 'PROPOSED',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+} as const
+
+export const RESOLUTION_VISIBILITY = {
+  PUBLIC: 'PUBLIC',
+  MEMBERS: 'MEMBERS',
+  INTERNAL: 'INTERNAL',
+} as const
+
+export const CONSENT_TYPE = {
+  CORE_STATUTES: 'CORE_STATUTES',
+  CHARTER: 'CHARTER',
+  TERMS: 'TERMS',
+  PRIVACY: 'PRIVACY',
+  INTERNAL_RULES: 'INTERNAL_RULES',
+} as const
+
+export type ConsentType = typeof CONSENT_TYPE[keyof typeof CONSENT_TYPE]
+
+export const CHAIRMAN_REQUIRED_CONSENTS: ConsentType[] = [
+  CONSENT_TYPE.CORE_STATUTES,
+  CONSENT_TYPE.CHARTER,
+  CONSENT_TYPE.TERMS,
+  CONSENT_TYPE.PRIVACY,
+]
+
+export const MEMBER_REQUIRED_CONSENTS: ConsentType[] = [
+  CONSENT_TYPE.INTERNAL_RULES,
+  CONSENT_TYPE.CHARTER,
+  CONSENT_TYPE.TERMS,
+  CONSENT_TYPE.PRIVACY,
+]

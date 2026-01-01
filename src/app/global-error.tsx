@@ -1,8 +1,6 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { mapServerError } from '@/app/ui/errors'
 
 export default function GlobalError({
   error,
@@ -11,44 +9,45 @@ export default function GlobalError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  const router = useRouter()
-  const uiError = mapServerError(error)
-
   useEffect(() => {
-    if (uiError === 'AUTH') {
-      router.replace('/login')
-    }
-  }, [uiError, router])
-
-  if (uiError === 'AUTH') {
-    return null
-  }
+    // Log the error to an error reporting service
+    console.error('Global application error:', error)
+  }, [error])
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="max-w-md text-center space-y-4">
-        <h1 className="text-xl font-semibold">Something went wrong</h1>
-
-        {uiError === 'FORBIDDEN' && (
-          <p>You do not have permission to perform this action.</p>
-        )}
-
-        {uiError === 'INVALID' && (
-          <p>The request is invalid.</p>
-        )}
-
-        {uiError === 'UNKNOWN' && (
-          <p>Please try again later.</p>
-        )}
-
-        <button
-          onClick={() => reset()}
-          className="rounded bg-black px-4 py-2 text-white"
-        >
-          Try again
-        </button>
-      </div>
-    </div>
+    <html lang="en">
+      <body>
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          minHeight: '100vh',
+          padding: '2rem',
+          fontFamily: 'system-ui, sans-serif'
+        }}>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>
+            Kažkas nutiko
+          </h1>
+          <p style={{ marginBottom: '2rem', color: '#666' }}>
+            Atsiprašome, įvyko klaida. Bandykite perkrauti puslapį.
+          </p>
+          <button
+            onClick={reset}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.25rem',
+              cursor: 'pointer',
+              fontSize: '1rem'
+            }}
+          >
+            Bandyti dar kartą
+          </button>
+        </div>
+      </body>
+    </html>
   )
 }
-

@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { Database } from '../types/database'
 
@@ -26,6 +27,21 @@ export async function createClient() {
         },
       },
     }
+  )
+}
+
+/**
+ * Create an anonymous Supabase client for public access.
+ * 
+ * Use this for public pages that don't require authentication.
+ * No cookies, no session - pure anonymous access.
+ * 
+ * @returns Anonymous Supabase client
+ */
+export function createAnonClient() {
+  return createSupabaseClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 }
 

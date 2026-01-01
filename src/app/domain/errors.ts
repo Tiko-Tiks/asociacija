@@ -6,6 +6,7 @@ export class DomainError extends Error {
   constructor(code: string) {
     super(code)
     this.code = code
+    this.name = 'DomainError'
   }
 }
 
@@ -19,5 +20,9 @@ export function crossOrgViolation(): never {
 
 export function operationFailed(): never {
   throw new DomainError(ERROR_CODE.OPERATION_FAILED)
+}
+
+export function accessDenied(): never {
+  throw new DomainError(ERROR_CODE.ACCESS_DENIED)
 }
 
