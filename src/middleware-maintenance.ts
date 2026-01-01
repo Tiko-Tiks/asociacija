@@ -8,12 +8,31 @@ import type { NextRequest } from 'next/server'
  * Allows bypass for admin users.
  */
 
-const MAINTENANCE_MODE = process.env.NEXT_PUBLIC_MAINTENANCE_MODE === 'true'
-const MAINTENANCE_BYPASS_KEY = process.env.MAINTENANCE_BYPASS_KEY || 'bypass-maintenance'
+// Get maintenance mode from environment
+// Note: In middleware, we need to check the actual value
+const getMaintenanceMode = () => {
+  const mode = process.env.NEXT_PUBLIC_MAINTENANCE_MODE
+  return mode === 'true' || mode === '1'
+}
+
+const getBypassKey = () => {
+  return process.env.MAINTENANCE_BYPASS_KEY || 'bypass-maintenance-2024'
+}
 
 export function maintenanceMiddleware(request: NextRequest) {
   // Skip maintenance check if not enabled
-  if (!MAINTENANCE_MODE) {
+  const isMaintenanceMode = getMaintenanceMode()
+  
+  // Debug logging (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[Maintenance] Mode check:', {
+      env: process.env.NEXT_PUBLIC_MAINTENANCE_MODE,
+      isEnabled: isMaintenanceMode,
+      pathname: request.nextUrl.pathname,
+    })
+  }
+  
+  if (!isMaintenanceMode) {
     return null
   }
 
@@ -31,11 +50,12 @@ export function maintenanceMiddleware(request: NextRequest) {
 
   // Check for bypass key in query parameter or cookie
   const bypassKey = request.nextUrl.searchParams.get('bypass') || request.cookies.get('maintenance-bypass')?.value
+  const requiredBypassKey = getBypassKey()
   
-  if (bypassKey === MAINTENANCE_BYPASS_KEY) {
+  if (bypassKey === requiredBypassKey) {
     // Set bypass cookie for future requests
     const response = NextResponse.next()
-    response.cookies.set('maintenance-bypass', MAINTENANCE_BYPASS_KEY, {
+    response.cookies.set('maintenance-bypass', requiredBypassKey, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
