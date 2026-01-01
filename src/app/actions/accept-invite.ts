@@ -160,8 +160,9 @@ export async function acceptInvite(
   }
 
   // Step 8: Mark invite as ACCEPTED
-  const { error: updateInviteError }: any = await supabase
-    .from('member_invites')
+  // Type assertion needed due to Supabase TypeScript inference limitations
+  const { error: updateInviteError }: any = await (supabase
+    .from('member_invites') as any)
     .update({
       status: 'ACCEPTED',
       accepted_at: new Date().toISOString(),
@@ -177,8 +178,9 @@ export async function acceptInvite(
   }
 
   // Step 9: Soft audit logging
-  const { error: auditError }: any = await supabase
-    .from('audit_logs')
+  // Type assertion needed due to Supabase TypeScript inference limitations
+  const { error: auditError }: any = await (supabase
+    .from('audit_logs') as any)
     .insert({
       org_id: invite.org_id,
       user_id: user.id,
