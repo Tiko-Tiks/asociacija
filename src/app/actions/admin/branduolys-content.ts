@@ -27,9 +27,10 @@ export async function getBranduolysOrg(): Promise<BranduolysContent | null> {
   const supabase = createAdminClient()
 
   // Find branduolys org by slug
-  const { data: org, error } = await supabase
+  // Type assertion needed due to Supabase TypeScript inference limitations
+  const { data: org, error }: any = await supabase
     .from('orgs')
-    .select('id, name, slug, status, created_at')
+    .select('id, name, slug, status, created_at, description')
     .in('slug', ['branduolys', 'platform'])
     .limit(1)
     .maybeSingle()
@@ -62,7 +63,8 @@ export async function updateBranduolysOrg(
   const supabase = createAdminClient()
 
   // Find branduolys org
-  const { data: org } = await supabase
+  // Type assertion needed due to Supabase TypeScript inference limitations
+  const { data: org }: any = await supabase
     .from('orgs')
     .select('id')
     .in('slug', ['branduolys', 'platform'])
@@ -74,8 +76,9 @@ export async function updateBranduolysOrg(
   }
 
   // Update org
-  const { error } = await supabase
-    .from('orgs')
+  // Type assertion needed due to Supabase TypeScript inference limitations
+  const { error }: any = await (supabase
+    .from('orgs') as any)
     .update({
       name: updates.name,
       description: updates.description || null,
