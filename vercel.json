@@ -1,4 +1,5 @@
 {
-  "installCommand": "npm ci --legacy-peer-deps"
+  "installCommand": "npm cache clean --force && npm ci --legacy-peer-deps",
+  "buildCommand": "npm run build"
 }
 
