@@ -36,6 +36,26 @@ interface LogoProps {
    * Custom icon path (for development mode)
    */
   customIconPath?: string
+  /**
+   * Use video logo instead of static image
+   */
+  useVideo?: boolean
+  /**
+   * Custom video logo path
+   */
+  customVideoPath?: string
+  /**
+   * Video autoplay
+   */
+  videoAutoplay?: boolean
+  /**
+   * Video loop
+   */
+  videoLoop?: boolean
+  /**
+   * Video muted
+   */
+  videoMuted?: boolean
 }
 
 const sizeMap = {
@@ -63,6 +83,11 @@ export function Logo({
   showText = true,
   customLogoPath,
   customIconPath,
+  useVideo = false,
+  customVideoPath,
+  videoAutoplay = true,
+  videoLoop = true,
+  videoMuted = true,
 }: LogoProps) {
   const [imageError, setImageError] = useState(false)
 
@@ -78,7 +103,7 @@ export function Logo({
   } else if (useCustomLogo && variant === 'full') {
     logoSrc = customLogoPath
   } else if (variant === 'icon') {
-    logoSrc = '/logo-icon.svg' // Icon-only version (to be created)
+    logoSrc = '/logo-icon.svg' // Icon-only version
   } else {
     logoSrc = '/logo.svg' // Default full logo
   }
@@ -92,7 +117,28 @@ export function Logo({
     ? { width, height }
     : sizeMap[size]
 
-  // Icon-only mode
+  // Video logo mode
+  const videoPath = customVideoPath || '/VideoLOGO.mp4'
+  const shouldUseVideo = useVideo || (isDev && customVideoPath)
+
+  // Icon-only mode with video
+  if (variant === 'icon' && !showText && shouldUseVideo) {
+    return (
+      <video
+        src={videoPath}
+        width={dimensions.width}
+        height={dimensions.height}
+        autoPlay={videoAutoplay}
+        loop={videoLoop}
+        muted={videoMuted}
+        playsInline
+        className={className}
+        style={{ width: dimensions.width, height: dimensions.height, objectFit: 'contain' }}
+      />
+    )
+  }
+
+  // Icon-only mode with image
   if (variant === 'icon' && !showText) {
     return (
       <Image
@@ -107,7 +153,32 @@ export function Logo({
     )
   }
 
-  // Full logo with text
+  // Full logo with text and video
+  if (shouldUseVideo) {
+    return (
+      <div className={`flex items-center gap-3 ${className}`}>
+        <video
+          src={videoPath}
+          width={dimensions.width}
+          height={dimensions.height}
+          autoPlay={videoAutoplay}
+          loop={videoLoop}
+          muted={videoMuted}
+          playsInline
+          className="flex-shrink-0"
+          style={{ width: dimensions.width, height: dimensions.height, objectFit: 'contain' }}
+        />
+        {showText && (
+          <div className="flex flex-col">
+            <h1 className="text-xl font-bold text-slate-900">Bendruomenių Branduolys</h1>
+            <p className="text-xs text-slate-600">Lietuvos bendruomenių platforma</p>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Full logo with text and image
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       <Image

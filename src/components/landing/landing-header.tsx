@@ -48,6 +48,8 @@ export function LandingHeader({
               size="md"
               showText={true}
               customLogoPath={logoConfig.useCustomLogos ? logoConfig.fullLogoPath : undefined}
+              useVideo={logoConfig.useVideoLogo}
+              customVideoPath={logoConfig.useVideoLogo ? logoConfig.videoLogoPath : undefined}
             />
           </Link>
 
