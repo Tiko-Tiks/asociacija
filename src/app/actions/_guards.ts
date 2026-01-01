@@ -27,7 +27,7 @@ function throwCrossOrgViolation(): never {
  * @returns The authenticated user
  * @throws Error('auth_violation') if user is not authenticated
  */
-export async function requireAuth(supabase: any): Promise<{ id: string }> {
+export async function requireAuth(supabase: any): Promise<{ id: string; email?: string }> {
   const {
     data: { user },
     error: authError,
