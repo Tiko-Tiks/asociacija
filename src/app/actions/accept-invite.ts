@@ -119,8 +119,9 @@ export async function acceptInvite(
     }
   } else {
     // Create new membership
-    const { data: newMembership, error: createError }: any = await supabase
-      .from('memberships')
+    // Type assertion needed due to Supabase TypeScript inference limitations
+    const { data: newMembership, error: createError }: any = await (supabase
+      .from('memberships') as any)
       .insert({
         org_id: invite.org_id,
         user_id: user.id,
