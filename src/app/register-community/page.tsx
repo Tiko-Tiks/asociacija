@@ -31,6 +31,12 @@ export default function RegisterCommunityPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [privacyDialogOpen, setPrivacyDialogOpen] = useState(false)
   const [privacyContent, setPrivacyContent] = useState<string>('')
+  const [registrationResult, setRegistrationResult] = useState<{
+    success: boolean
+    orgSlug?: string
+    message?: string
+    error?: string
+  } | null>(null)
 
   // Load privacy policy content when dialog opens
   const handlePrivacyLinkClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -140,15 +146,44 @@ export default function RegisterCommunityPage() {
         body: JSON.stringify(applicationData),
       })
 
+      const result = await response.json()
+      console.log('REGISTRATION_RESPONSE:', {
+        ok: response.ok,
+        status: response.status,
+        result,
+      })
+
       if (!response.ok) {
-        throw new Error('Nepavyko pateikti paraiškos')
+        // API returned an error
+        setRegistrationResult({
+          success: false,
+          error: result.error || 'Nepavyko pateikti paraiškos',
+        })
+        setIsSubmitting(false)
+        setIsSubmitted(true)
+        return
       }
 
-      const result = await response.json()
-      console.log('COMMUNITY_APPLICATION_RECEIVED:', result)
+      // Store result for display
+      setRegistrationResult(result)
+      
+      // If orgSlug is returned, account was created successfully (new flow)
+      if (result.orgSlug) {
+        console.log('Account created successfully, redirecting to onboarding:', result.orgSlug)
+        // Redirect to onboarding after a short delay
+        setTimeout(() => {
+          window.location.href = `/dashboard/${result.orgSlug}/onboarding`
+        }, 3000) // 3 seconds to show success message
+      } else {
+        // Old flow - just show success message
+        console.log('Registration submitted (old flow - no orgSlug)')
+      }
     } catch (error) {
       console.error('Error submitting registration:', error)
-      // Still show success message even if email fails
+      setRegistrationResult({
+        success: false,
+        error: error instanceof Error ? error.message : 'Nepavyko pateikti paraiškos. Bandykite dar kartą.',
+      })
     }
 
     setIsSubmitting(false)
@@ -156,6 +191,88 @@ export default function RegisterCommunityPage() {
   }
 
   if (isSubmitted) {
+    // Check if account was created (new flow)
+    if (registrationResult?.orgSlug) {
+      return (
+        <PageLayout showHeader={true} showFooter={false}>
+          <div className="flex min-h-[calc(100vh-80px)] items-center justify-center px-4 py-12">
+            <Card className="w-full max-w-md">
+              <CardHeader className="text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+                  <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <CardTitle className="text-2xl">Paskyra sukurta!</CardTitle>
+                <CardDescription>
+                  Jūsų paskyra sėkmingai sukurta
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-900 font-medium mb-2">
+                    ✅ Patikrinkite el. paštą
+                  </p>
+                  <p className="text-sm text-blue-800">
+                    Jūsų el. paštu gavote prisijungimo duomenis ir nuorodą į onboarding procesą.
+                  </p>
+                </div>
+                <p className="text-center text-sm text-slate-600">
+                  Perkeliama į onboarding puslapį...
+                </p>
+                <div className="flex justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+                <Button asChild className="w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                  <Link href={`/dashboard/${registrationResult.orgSlug}/onboarding`}>
+                    Eiti į onboarding
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </PageLayout>
+      )
+    }
+
+    // Error case
+    if (registrationResult?.error) {
+      return (
+        <PageLayout showHeader={true} showFooter={false}>
+          <div className="flex min-h-[calc(100vh-80px)] items-center justify-center px-4 py-12">
+            <Card className="w-full max-w-md">
+              <CardHeader className="text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+                  <svg className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+                <CardTitle className="text-2xl">Klaida</CardTitle>
+                <CardDescription>
+                  {registrationResult.error}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button 
+                  onClick={() => {
+                    setIsSubmitted(false)
+                    setRegistrationResult(null)
+                  }}
+                  className="w-full"
+                >
+                  Bandyti dar kartą
+                </Button>
+                <Button asChild variant="outline" className="w-full">
+                  <Link href="/">Grįžti į pagrindinį</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </PageLayout>
+      )
+    }
+
+    // Fallback: Old flow (if API didn't return orgSlug)
     return (
       <PageLayout showHeader={true} showFooter={false}>
         <div className="flex min-h-[calc(100vh-80px)] items-center justify-center px-4 py-12">
