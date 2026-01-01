@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { maintenanceMiddleware } from './middleware-maintenance'
 
 /**
- * Middleware for Subdomain Routing
+ * Middleware for Subdomain Routing and Maintenance Mode
  * 
- * Handles subdomain-based routing for custom domain (asociacija.net)
+ * 1. Checks maintenance mode first
+ * 2. Handles subdomain-based routing for custom domain (asociacija.net)
  * 
  * Examples:
  * - org.asociacija.net → /c/org
@@ -16,6 +18,13 @@ import type { NextRequest } from 'next/server'
  * Otherwise, continues with normal routing
  */
 export function middleware(request: NextRequest) {
+  // Step 1: Check maintenance mode
+  const maintenanceResponse = maintenanceMiddleware(request)
+  if (maintenanceResponse) {
+    return maintenanceResponse
+  }
+
+  // Step 2: Handle subdomain routing
   const url = request.nextUrl.clone()
   const hostname = request.headers.get('host') || ''
   
