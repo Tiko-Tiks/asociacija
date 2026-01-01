@@ -74,11 +74,12 @@ export async function POST(request: NextRequest) {
       text: adminEmail.text,
     })
 
-    // 3. Send confirmation email to applicant
+    // 3. Send confirmation email to applicant (without onboarding link - will be sent after admin approval)
     const { getRegistrationConfirmationEmail } = await import('@/lib/email-templates')
     const confirmationEmail = getRegistrationConfirmationEmail({
       communityName: data.communityName,
       email: data.email,
+      // onboardingLink will be sent separately after admin creates organization
     })
 
     await sendEmail({

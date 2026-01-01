@@ -298,8 +298,27 @@ Lietuvos bendruomenių valdymo platforma
 export function getRegistrationConfirmationEmail(data: {
   communityName: string
   email: string
+  onboardingLink?: string
 }): { subject: string; html: string; text: string } {
   const subject = 'Jūsų paraiška gauta - Branduolys'
+  
+  let onboardingSection = ''
+  if (data.onboardingLink) {
+    onboardingSection = `
+      ${getInfoBox('Jūsų paraiška buvo patvirtinta! Dabar galite pradėti onboarding procesą.', 'success')}
+      
+      ${getButton(data.onboardingLink, 'Pradėti onboarding', 'primary')}
+      
+      <p style="margin: 16px 0 0 0; color: #64748b; font-size: 14px; line-height: 1.6;">
+        Jei mygtukas neveikia, nukopijuokite šią nuorodą į naršyklę:<br>
+        <a href="${data.onboardingLink}" style="color: #3b82f6; word-break: break-all; text-decoration: underline;">${data.onboardingLink}</a>
+      </p>
+    `
+  } else {
+    onboardingSection = `
+      ${getInfoBox('Peržiūrėsime jūsų paraišką ir su jumis susisieksime per pateiktą el. pašto adresą <strong>' + data.email + '</strong>.', 'info')}
+    `
+  }
   
   const content = `
     <h2 style="margin: 0 0 16px 0; color: #1e293b; font-size: 20px; font-weight: 600;">
@@ -310,7 +329,7 @@ export function getRegistrationConfirmationEmail(data: {
       Gavome jūsų paraišką registruoti bendruomenę <strong style="color: #1e293b;">${data.communityName}</strong>.
     </p>
     
-    ${getInfoBox('Peržiūrėsime jūsų paraišką ir su jumis susisieksime per pateiktą el. pašto adresą <strong>' + data.email + '</strong>.', 'success')}
+    ${onboardingSection}
     
     <p style="margin: 24px 0 0 0; color: #64748b; font-size: 14px; line-height: 1.6;">
       Jei turite klausimų, susisiekite su mumis.
@@ -324,13 +343,25 @@ export function getRegistrationConfirmationEmail(data: {
   
   const html = getEmailTemplate(content, '#10b981')
   
-  const text = `
+  let textContent = `
 Dėkojame už jūsų paraišką!
 
 Gavome jūsų paraišką registruoti bendruomenę ${data.communityName}.
+`
+  
+  if (data.onboardingLink) {
+    textContent += `
+Jūsų paraiška buvo patvirtinta! Dabar galite pradėti onboarding procesą.
 
+Pradėti onboarding: ${data.onboardingLink}
+`
+  } else {
+    textContent += `
 Peržiūrėsime jūsų paraišką ir su jumis susisieksime per pateiktą el. pašto adresą ${data.email}.
-
+`
+  }
+  
+  textContent += `
 Jei turite klausimų, susisiekite su mumis.
 
 Pagarbiai,
@@ -340,7 +371,7 @@ ${APP_NAME}
 Lietuvos bendruomenių valdymo platforma
   `.trim()
   
-  return { subject, html, text }
+  return { subject, html, text: textContent }
 }
 
 /**
