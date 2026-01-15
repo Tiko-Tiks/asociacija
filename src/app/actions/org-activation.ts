@@ -11,7 +11,7 @@ import { revalidatePath } from 'next/cache'
  * Org Activation Actions (B3.3)
  * 
  * Server actions for activating organizations.
- * Used by CORE admin to approve organizations.
+ * Used by Platformos admin to approve organizations.
  * 
  * Sends email to Chairman when org is activated.
  */
@@ -19,7 +19,7 @@ import { revalidatePath } from 'next/cache'
 /**
  * Activate an organization
  * 
- * CRITICAL: This should only be called by CORE admin.
+ * CRITICAL: This should only be called by Platformos admin.
  * In production, this would be called via admin interface.
  * 
  * @param orgId - Organization ID to activate
@@ -33,7 +33,7 @@ export async function activateOrganization(
   const supabase = await createClient()
   const adminUser = await requireAuth(supabase)
 
-  // Step 1: Check if user is platform admin (CORE)
+  // Step 1: Check if user is platform admin (Platforma)
   // For now, check if user has OWNER role (can be extended with admin check)
   const { data: adminMembership }: any = await supabase
     .from('memberships')
@@ -42,7 +42,7 @@ export async function activateOrganization(
     .eq('role', MEMBERSHIP_ROLE.OWNER)
     .limit(1)
 
-  // TODO: Add proper CORE admin check (e.g., isPlatformAdmin() or specific admin role)
+  // TODO: Add proper Platformos admin check (e.g., isPlatformAdmin() or specific admin role)
   // For now, allow OWNER to activate (this should be restricted in production)
 
   // Step 2: Get org details

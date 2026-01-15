@@ -62,11 +62,13 @@ export async function getPublicCommunityPageData(
   const supabase = createPublicClient()
 
   // First, get org by slug
+  // PRE_ORG BLOCKING: Only fetch ACTIVE orgs (PRE_ORG must return 404)
   // Note: description column may not exist in orgs table
   const { data: org, error: orgError } = await supabase
     .from('orgs')
     .select('id, name, slug')
     .eq('slug', slug)
+    .eq('status', 'ACTIVE')
     .maybeSingle()
 
   if (orgError) {

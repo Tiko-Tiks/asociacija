@@ -1,3 +1,5 @@
+// Dizainas pagal asociacija.net gaires v2026-01 – minimalistinis, audit-safe, institutional, vientisas visiems komponentams
+
 "use client"
 
 /**
@@ -38,9 +40,9 @@ export function ErrorDisplayClient({ errorMessage, errorStack, userMessage }: Er
   }
 
   return (
-    <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+    <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm text-destructive font-medium select-text flex-1 break-words" style={{ userSelect: 'text' }}>
+        <p className="text-sm text-red-600 dark:text-red-400 font-medium select-text flex-1 break-words" style={{ userSelect: 'text' }}>
           {userMessage}
         </p>
         {/* TEMPORARY: Copy button for debugging (pilot mode) */}

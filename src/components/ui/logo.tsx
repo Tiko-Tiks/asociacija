@@ -37,6 +37,14 @@ interface LogoProps {
    */
   customIconPath?: string
   /**
+   * Organization logo URL (overrides default logo if provided)
+   */
+  orgLogoUrl?: string | null
+  /**
+   * Organization name (for alt text when using org logo)
+   */
+  orgName?: string | null
+  /**
    * Use video logo instead of static image
    */
   useVideo?: boolean
@@ -83,6 +91,8 @@ export function Logo({
   showText = true,
   customLogoPath,
   customIconPath,
+  orgLogoUrl,
+  orgName,
   useVideo = false,
   customVideoPath,
   videoAutoplay = true,
@@ -91,14 +101,18 @@ export function Logo({
 }: LogoProps) {
   const [imageError, setImageError] = useState(false)
 
+  // Priority: orgLogoUrl > custom paths > default logo
   // Development mode: check for custom logo paths
   const isDev = process.env.NODE_ENV === 'development'
   const useCustomLogo = isDev && customLogoPath
   const useCustomIcon = isDev && customIconPath && variant === 'icon'
+  const useOrgLogo = orgLogoUrl && !imageError
 
   // Determine logo source
   let logoSrc: string
-  if (useCustomIcon) {
+  if (useOrgLogo) {
+    logoSrc = orgLogoUrl
+  } else if (useCustomIcon) {
     logoSrc = customIconPath
   } else if (useCustomLogo && variant === 'full') {
     logoSrc = customLogoPath
@@ -109,7 +123,7 @@ export function Logo({
   }
 
   // Fallback to default if custom image fails to load
-  if (imageError && (useCustomLogo || useCustomIcon)) {
+  if (imageError && (useCustomLogo || useCustomIcon || useOrgLogo)) {
     logoSrc = variant === 'icon' ? '/logo-icon.svg' : '/logo.svg'
   }
 
@@ -143,12 +157,13 @@ export function Logo({
     return (
       <Image
         src={logoSrc}
-        alt="Branduolys"
+        alt={orgName || 'Branduolys'}
         width={dimensions.width}
         height={dimensions.height}
         className={className}
         onError={() => setImageError(true)}
         priority
+        unoptimized={!!orgLogoUrl} // Don't optimize external URLs
       />
     )
   }
@@ -183,17 +198,22 @@ export function Logo({
     <div className={`flex items-center gap-3 ${className}`}>
       <Image
         src={logoSrc}
-        alt="Lietuvos Bendruomenių Branduolys"
+        alt={orgName || 'Lietuvos Bendruomenių Branduolys'}
         width={dimensions.width}
         height={dimensions.height}
         className="flex-shrink-0"
         onError={() => setImageError(true)}
         priority
+        unoptimized={!!orgLogoUrl} // Don't optimize external URLs
       />
       {showText && (
         <div className="flex flex-col">
-          <h1 className="text-xl font-bold text-slate-900">Bendruomenių Branduolys</h1>
-          <p className="text-xs text-slate-600">Lietuvos bendruomenių platforma</p>
+          <h1 className="text-xl font-bold text-slate-900">
+            {orgName || 'Bendruomenių Branduolys'}
+          </h1>
+          {!orgName && (
+            <p className="text-xs text-slate-600">Lietuvos bendruomenių platforma</p>
+          )}
         </div>
       )}
     </div>

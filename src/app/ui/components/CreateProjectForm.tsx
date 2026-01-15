@@ -1,3 +1,6 @@
+/**
+ * DEPRECATED (v19.0): Projects are derived from APPROVED resolutions
+ */
 'use client'
 
 import { useState } from 'react'
@@ -26,10 +29,10 @@ export function CreateProjectForm({ membershipId }: { membershipId: string }) {
         {loading ? 'Creating…' : 'Create'}
       </button>
 
-      {error === 'AUTH' && <p>Please sign in</p>}
-      {error === 'FORBIDDEN' && <p>Not allowed</p>}
-      {error === 'INVALID' && <p>Invalid input</p>}
-      {error === 'UNKNOWN' && <p>Something went wrong</p>}
+      {error === 'AUTH' && <p>Reikia prisijungti</p>}
+      {error === 'FORBIDDEN' && <p>Neturite teisiu arba aktyvios narystes</p>}
+      {error === 'INVALID' && <p>Neteisinga ivestis</p>}
+      {error === 'UNKNOWN' && <p>Ivyko klaida</p>}
     </form>
   )
 }

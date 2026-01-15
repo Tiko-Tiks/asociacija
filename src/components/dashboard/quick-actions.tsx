@@ -28,13 +28,14 @@ export function QuickActions({ orgSlug, userRole }: QuickActionsProps) {
 
   return (
     <div className="flex flex-wrap gap-3">
-      <Button
+      {/* DEPRECATED (v19.0): Create Project button removed - Projects are derived from APPROVED resolutions */}
+      {/* <Button
         onClick={() => router.push(`/dashboard/${orgSlug}/projects/new`)}
         className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         <Plus className="mr-2 h-4 w-4" />
         Naujas Projektas
-      </Button>
+      </Button> */}
       <Button
         onClick={() => router.push(`/dashboard/${orgSlug}/invoices`)}
         variant="outline"

@@ -104,7 +104,7 @@ export function WaitingStep({ orgId, orgName, activationStatus }: WaitingStepPro
           <div>
             <CardTitle className="text-xl">3. Laukiama patvirtinimo</CardTitle>
             <CardDescription>
-              Jūsų pateikti duomenys peržiūrimi CORE komiteto
+              Jūsų pateikti duomenys peržiūrimi Platformos
             </CardDescription>
           </div>
         </div>
@@ -145,7 +145,7 @@ export function WaitingStep({ orgId, orgName, activationStatus }: WaitingStepPro
                     ? 'text-red-900' 
                     : 'text-amber-900'
                 }`}>
-                  CORE patvirtinimas
+                  Platformos patvirtinimas
                 </p>
                 <p className={`text-sm ${
                   isInconsistentState 
@@ -174,7 +174,7 @@ export function WaitingStep({ orgId, orgName, activationStatus }: WaitingStepPro
                   Ką daryti toliau?
                 </p>
                 <p className="text-sm text-slate-700">
-                  CORE komitetas peržiūri jūsų pateiktus valdymo atsakymus. Kai organizacija bus
+                  Platforma peržiūri jūsų pateiktus valdymo atsakymus. Kai organizacija bus
                   patvirtinta, automatiškai būsite nukreipti į valdymo pultą. Šis puslapis
                   automatiškai atnaujinamas kas 30 sekundžių.
                 </p>

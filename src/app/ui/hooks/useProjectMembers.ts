@@ -33,9 +33,9 @@ export function useProjectMembers(
     } catch (e: unknown) {
       const uiError = mapServerError(e)
       if (uiError === 'AUTH') {
-        setError('Authentication required')
+        setError('Reikia prisijungti')
       } else if (uiError === 'FORBIDDEN') {
-        setError('Not allowed')
+        setError('Neturite teisiu arba aktyvios narystes')
       } else {
         setError('Failed to load members')
       }
@@ -55,9 +55,9 @@ export function useProjectMembers(
     } catch (e: unknown) {
       const uiError = mapServerError(e)
       if (uiError === 'AUTH') {
-        setError('Authentication required')
+        setError('Reikia prisijungti')
       } else if (uiError === 'FORBIDDEN') {
-        setError('Not allowed')
+        setError('Neturite teisiu arba aktyvios narystes')
       } else {
         setError('Action failed')
       }
@@ -76,9 +76,9 @@ export function useProjectMembers(
     } catch (e: unknown) {
       const uiError = mapServerError(e)
       if (uiError === 'AUTH') {
-        setError('Authentication required')
+        setError('Reikia prisijungti')
       } else if (uiError === 'FORBIDDEN') {
-        setError('Not allowed')
+        setError('Neturite teisiu arba aktyvios narystes')
       } else {
         setError('Action failed')
       }
@@ -94,9 +94,9 @@ export function useProjectMembers(
     } catch (e: unknown) {
       const uiError = mapServerError(e)
       if (uiError === 'AUTH') {
-        setError('Authentication required')
+        setError('Reikia prisijungti')
       } else if (uiError === 'FORBIDDEN') {
-        setError('Not allowed')
+        setError('Neturite teisiu arba aktyvios narystes')
       } else {
         setError('Action failed')
       }

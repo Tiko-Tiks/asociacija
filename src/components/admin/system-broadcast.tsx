@@ -52,16 +52,16 @@ export function SystemBroadcast() {
 
         if (result.success) {
           toast({
-            title: 'Success',
-            description: `Broadcast sent to ${result.notificationsCreated} owners`,
+            title: 'Sėkmė',
+            description: `Pranešimas išsiųstas ${result.notificationsCreated} savininkams`,
           })
           setTitle('')
           setMessage('')
           router.refresh()
         } else {
           toast({
-            title: 'Error',
-            description: result.error || 'Failed to send broadcast',
+            title: 'Klaida',
+            description: result.error || 'Nepavyko išsiųsti pranešimo',
             variant: 'destructive',
           })
         }
@@ -75,24 +75,24 @@ export function SystemBroadcast() {
 
         if (result.success) {
           toast({
-            title: 'Success',
-            description: 'Global announcement created',
+            title: 'Sėkmė',
+            description: 'Visuotinis skelbimas sukurtas',
           })
           setTitle('')
           setMessage('')
           router.refresh()
         } else {
           toast({
-            title: 'Error',
-            description: result.error || 'Failed to create announcement',
+            title: 'Klaida',
+            description: result.error || 'Nepavyko sukurti skelbimo',
             variant: 'destructive',
           })
         }
       }
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to send broadcast',
+        title: 'Klaida',
+        description: 'Nepavyko išsiųsti pranešimo',
         variant: 'destructive',
       })
     } finally {
@@ -115,7 +115,7 @@ export function SystemBroadcast() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Broadcast Type */}
           <div className="space-y-2">
-            <Label className="text-slate-300">Broadcast Type</Label>
+            <Label className="text-slate-300">Pranešimo tipas</Label>
             <Select
               value={broadcastType}
               onValueChange={(value) => setBroadcastType(value as BroadcastType)}
@@ -137,7 +137,7 @@ export function SystemBroadcast() {
 
           {/* Send As */}
           <div className="space-y-2">
-            <Label className="text-slate-300">Send As</Label>
+            <Label className="text-slate-300">Siųsti kaip</Label>
             <RadioGroup
               value={sendAs}
               onValueChange={(value) =>
@@ -147,13 +147,13 @@ export function SystemBroadcast() {
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="notification" id="notification" />
                 <Label htmlFor="notification" className="text-slate-300">
-                  Notification (to all owners)
+                  Pranešimas (visiems savininkams)
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="announcement" id="announcement" />
                 <Label htmlFor="announcement" className="text-slate-300">
-                  Global Announcement (visible on all dashboards)
+                  Visuotinis skelbimas (matomas visuose dashboard'uose)
                 </Label>
               </div>
             </RadioGroup>
@@ -161,7 +161,7 @@ export function SystemBroadcast() {
 
           {/* Priority */}
           <div className="space-y-2">
-            <Label className="text-slate-300">Priority</Label>
+            <Label className="text-slate-300">Prioritetas</Label>
             <Select
               value={priority}
               onValueChange={(value) =>
@@ -172,9 +172,9 @@ export function SystemBroadcast() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-slate-900 border-slate-800">
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="low">Žemas</SelectItem>
+                <SelectItem value="medium">Vidutinis</SelectItem>
+                <SelectItem value="high">Aukštas</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -182,7 +182,7 @@ export function SystemBroadcast() {
           {/* Title */}
           <div className="space-y-2">
             <Label htmlFor="title" className="text-slate-300">
-              Title
+              Pavadinimas
             </Label>
             <Input
               id="title"
@@ -190,14 +190,14 @@ export function SystemBroadcast() {
               onChange={(e) => setTitle(e.target.value)}
               required
               className="bg-slate-800 border-slate-700 text-slate-100"
-              placeholder="Enter broadcast title"
+              placeholder="Įveskite pranešimo pavadinimą"
             />
           </div>
 
           {/* Message */}
           <div className="space-y-2">
             <Label htmlFor="message" className="text-slate-300">
-              Message
+              Pranešimas
             </Label>
             <Textarea
               id="message"
@@ -206,7 +206,7 @@ export function SystemBroadcast() {
               required
               rows={6}
               className="bg-slate-800 border-slate-700 text-slate-100"
-              placeholder="Enter broadcast message"
+              placeholder="Įveskite pranešimo tekstą"
             />
           </div>
 
@@ -217,11 +217,11 @@ export function SystemBroadcast() {
             className="w-full bg-blue-600 hover:bg-blue-700 text-white"
           >
             {loading ? (
-              'Sending...'
+              'Siunčiama...'
             ) : (
               <>
                 <Send className="h-4 w-4 mr-2" />
-                Send Broadcast
+                Išsiųsti pranešimą
               </>
             )}
           </Button>

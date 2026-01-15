@@ -35,7 +35,7 @@ export function AIBrainMonitor() {
         <Card className="bg-slate-900 border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-slate-400">
-              Total Requests
+              Viso užklausų
             </CardTitle>
             <Zap className="h-4 w-4 text-slate-500" />
           </CardHeader>
@@ -43,14 +43,14 @@ export function AIBrainMonitor() {
             <div className="text-3xl font-bold text-slate-100">
               {aiStats.totalRequests}
             </div>
-            <p className="text-xs text-slate-500 mt-1">All time</p>
+            <p className="text-xs text-slate-500 mt-1">Viso laikotarpiu</p>
           </CardContent>
         </Card>
 
         <Card className="bg-slate-900 border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-slate-400">
-              Total Tokens
+              Viso tokenų
             </CardTitle>
             <TrendingUp className="h-4 w-4 text-slate-500" />
           </CardHeader>
@@ -58,14 +58,14 @@ export function AIBrainMonitor() {
             <div className="text-3xl font-bold text-slate-100">
               {aiStats.totalTokens.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
             </div>
-            <p className="text-xs text-slate-500 mt-1">Processed</p>
+            <p className="text-xs text-slate-500 mt-1">Apdorota</p>
           </CardContent>
         </Card>
 
         <Card className="bg-slate-900 border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-slate-400">
-              Estimated Cost
+              Numatoma kaina
             </CardTitle>
             <DollarSign className="h-4 w-4 text-slate-500" />
           </CardHeader>
@@ -73,7 +73,7 @@ export function AIBrainMonitor() {
             <div className="text-3xl font-bold text-green-500">
               ${aiStats.estimatedCost.toFixed(2)}
             </div>
-            <p className="text-xs text-slate-500 mt-1">All time</p>
+            <p className="text-xs text-slate-500 mt-1">Viso laikotarpiu</p>
           </CardContent>
         </Card>
       </div>
@@ -83,13 +83,13 @@ export function AIBrainMonitor() {
         <CardHeader>
           <CardTitle className="text-slate-100 flex items-center gap-2">
             <Brain className="h-5 w-5" />
-            Top Communities by AI Usage
+            Top bendruomenės pagal AI naudojimą
           </CardTitle>
         </CardHeader>
         <CardContent>
           {aiStats.topCommunities.length === 0 ? (
             <p className="text-slate-500 text-center py-8">
-              No AI usage data available yet
+              AI naudojimo duomenų dar nėra
             </p>
           ) : (
             <div className="space-y-2">
@@ -99,7 +99,7 @@ export function AIBrainMonitor() {
                   className="flex justify-between items-center p-3 bg-slate-800 rounded-md"
                 >
                   <span className="text-slate-300">{community.name}</span>
-                  <span className="text-slate-400">{community.requests} requests</span>
+                  <span className="text-slate-400">{community.requests} užklausų</span>
                 </div>
               ))}
             </div>
@@ -112,16 +112,16 @@ export function AIBrainMonitor() {
         <CardHeader>
           <CardTitle className="text-slate-100 flex items-center gap-2">
             <Brain className="h-5 w-5" />
-            System Prompt Engineering
+            Sistemos prompt redagavimas
           </CardTitle>
           <p className="text-sm text-slate-400 mt-1">
-            Update the system prompt used by AI across the platform
+            Atnaujinti sistemos prompt, naudojamą AI visoje platformoje
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="system-prompt" className="text-slate-300">
-              System Prompt
+              Sistemos prompt
             </Label>
             <Textarea
               id="system-prompt"
@@ -129,10 +129,10 @@ export function AIBrainMonitor() {
               onChange={(e) => setSystemPrompt(e.target.value)}
               rows={10}
               className="bg-slate-800 border-slate-700 text-slate-100 font-mono text-sm"
-              placeholder="Enter system prompt for AI..."
+              placeholder="Įveskite sistemos prompt AI..."
             />
             <p className="text-xs text-slate-500">
-              This prompt will be used for all AI interactions across the platform
+              Šis prompt bus naudojamas visoms AI sąveikoms visoje platformoje
             </p>
           </div>
           <Button
@@ -140,7 +140,7 @@ export function AIBrainMonitor() {
             disabled={saving || !systemPrompt}
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
-            {saving ? 'Saving...' : 'Save System Prompt'}
+            {saving ? 'Išsaugoma...' : 'Išsaugoti sistemos prompt'}
           </Button>
         </CardContent>
       </Card>

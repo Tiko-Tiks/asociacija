@@ -69,7 +69,7 @@ describe('addProjectMember', () => {
     ).rejects.toThrow(ERROR_CODE.CROSS_ORG)
   })
 
-  it(`throws '${ERROR_CODE.CROSS_ORG}' when membership.status !== ACTIVE`, async () => {
+  it(`throws '${ERROR_CODE.CROSS_ORG}' when membership.member_status !== ACTIVE`, async () => {
     mockSupabase.auth.getUser.mockResolvedValue({
       data: { user: { id: 'user-id' } },
       error: null,
@@ -81,7 +81,7 @@ describe('addProjectMember', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'SUSPENDED',
+          member_status: 'SUSPENDED',
           user_id: 'user-id',
         },
         error: null,
@@ -107,7 +107,7 @@ describe('addProjectMember', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'different-user-id',
         },
         error: null,
@@ -133,7 +133,7 @@ describe('addProjectMember', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -176,7 +176,7 @@ describe('addProjectMember', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-1',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -222,7 +222,7 @@ describe('addProjectMember', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -253,13 +253,14 @@ describe('addProjectMember', () => {
     const mockProjectMemberQuery: any = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
+      maybeSingle: vi.fn().mockResolvedValue({
         data: { role: PROJECT_ROLE.VIEWER },
         error: null,
       }),
     }
 
     let projectsCallCount = 0
+    let membershipCallCount = 0
     const projectsTableForMembership: any = {
       select: vi.fn(() => mockProjectSelectForMembership),
     }
@@ -269,7 +270,11 @@ describe('addProjectMember', () => {
 
     mockSupabase.from.mockImplementation((table: string) => {
       if (table === 'memberships') {
-        return mockMembershipQuery
+        membershipCallCount++
+        if (membershipCallCount === 1) {
+          return mockMembershipQuery
+        }
+        return mockProjectMemberQuery
       }
       if (table === 'projects') {
         projectsCallCount++
@@ -278,9 +283,6 @@ describe('addProjectMember', () => {
         } else {
           return projectsTableForRole
         }
-      }
-      if (table === 'project_members') {
-        return mockProjectMemberQuery
       }
       return {}
     })
@@ -302,7 +304,7 @@ describe('addProjectMember', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -333,7 +335,7 @@ describe('addProjectMember', () => {
     const mockProjectMemberQuery: any = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
+      maybeSingle: vi.fn().mockResolvedValue({
         data: { role: PROJECT_ROLE.OWNER },
         error: null,
       }),
@@ -349,15 +351,12 @@ describe('addProjectMember', () => {
     }
 
     let projectsCallCount = 0
-    let projectMembersCallCount = 0
+    let membershipCallCount = 0
     const projectsTableForMembership: any = {
       select: vi.fn(() => mockProjectSelectForMembership),
     }
     const projectsTableForRole: any = {
       select: vi.fn(() => mockProjectSelectForRole),
-    }
-    const projectMembersTableForSelect: any = {
-      select: vi.fn(() => mockProjectMemberQuery),
     }
     const projectMembersTableForInsert: any = {
       insert: vi.fn(() => mockProjectMemberInsert),
@@ -365,7 +364,11 @@ describe('addProjectMember', () => {
 
     mockSupabase.from.mockImplementation((table: string) => {
       if (table === 'memberships') {
-        return mockMembershipQuery
+        membershipCallCount++
+        if (membershipCallCount === 1) {
+          return mockMembershipQuery
+        }
+        return mockProjectMemberQuery
       }
       if (table === 'projects') {
         projectsCallCount++
@@ -376,12 +379,7 @@ describe('addProjectMember', () => {
         }
       }
       if (table === 'project_members') {
-        projectMembersCallCount++
-        if (projectMembersCallCount === 1) {
-          return projectMembersTableForSelect
-        } else {
-          return projectMembersTableForInsert
-        }
+        return projectMembersTableForInsert
       }
       return {}
     })
@@ -414,7 +412,7 @@ describe('addProjectMember', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -445,7 +443,7 @@ describe('addProjectMember', () => {
     const mockProjectMemberQuery: any = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
+      maybeSingle: vi.fn().mockResolvedValue({
         data: { role: PROJECT_ROLE.EDITOR },
         error: null,
       }),
@@ -461,15 +459,12 @@ describe('addProjectMember', () => {
     }
 
     let projectsCallCount = 0
-    let projectMembersCallCount = 0
+    let membershipCallCount = 0
     const projectsTableForMembership: any = {
       select: vi.fn(() => mockProjectSelectForMembership),
     }
     const projectsTableForRole: any = {
       select: vi.fn(() => mockProjectSelectForRole),
-    }
-    const projectMembersTableForSelect: any = {
-      select: vi.fn(() => mockProjectMemberQuery),
     }
     const projectMembersTableForInsert: any = {
       insert: vi.fn(() => mockProjectMemberInsert),
@@ -477,7 +472,11 @@ describe('addProjectMember', () => {
 
     mockSupabase.from.mockImplementation((table: string) => {
       if (table === 'memberships') {
-        return mockMembershipQuery
+        membershipCallCount++
+        if (membershipCallCount === 1) {
+          return mockMembershipQuery
+        }
+        return mockProjectMemberQuery
       }
       if (table === 'projects') {
         projectsCallCount++
@@ -488,12 +487,7 @@ describe('addProjectMember', () => {
         }
       }
       if (table === 'project_members') {
-        projectMembersCallCount++
-        if (projectMembersCallCount === 1) {
-          return projectMembersTableForSelect
-        } else {
-          return projectMembersTableForInsert
-        }
+        return projectMembersTableForInsert
       }
       return {}
     })
@@ -551,7 +545,7 @@ describe('removeProjectMember', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -582,13 +576,14 @@ describe('removeProjectMember', () => {
     const mockProjectMemberQuery: any = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
+      maybeSingle: vi.fn().mockResolvedValue({
         data: { role: PROJECT_ROLE.EDITOR },
         error: null,
       }),
     }
 
     let projectsCallCount = 0
+    let membershipCallCount = 0
     const projectsTableForMembership: any = {
       select: vi.fn(() => mockProjectSelectForMembership),
     }
@@ -598,7 +593,11 @@ describe('removeProjectMember', () => {
 
     mockSupabase.from.mockImplementation((table: string) => {
       if (table === 'memberships') {
-        return mockMembershipQuery
+        membershipCallCount++
+        if (membershipCallCount === 1) {
+          return mockMembershipQuery
+        }
+        return mockProjectMemberQuery
       }
       if (table === 'projects') {
         projectsCallCount++
@@ -607,9 +606,6 @@ describe('removeProjectMember', () => {
         } else {
           return projectsTableForRole
         }
-      }
-      if (table === 'project_members') {
-        return mockProjectMemberQuery
       }
       return {}
     })
@@ -631,7 +627,7 @@ describe('removeProjectMember', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -662,7 +658,7 @@ describe('removeProjectMember', () => {
     const mockProjectMemberQuery: any = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
+      maybeSingle: vi.fn().mockResolvedValue({
         data: { role: PROJECT_ROLE.OWNER },
         error: null,
       }),
@@ -679,15 +675,12 @@ describe('removeProjectMember', () => {
     }
 
     let projectsCallCount = 0
-    let projectMembersCallCount = 0
+    let membershipCallCount = 0
     const projectsTableForMembership: any = {
       select: vi.fn(() => mockProjectSelectForMembership),
     }
     const projectsTableForRole: any = {
       select: vi.fn(() => mockProjectSelectForRole),
-    }
-    const projectMembersTableForSelect: any = {
-      select: vi.fn(() => mockProjectMemberQuery),
     }
     const projectMembersTableForDelete: any = {
       delete: vi.fn(() => mockProjectMemberDelete),
@@ -695,7 +688,11 @@ describe('removeProjectMember', () => {
 
     mockSupabase.from.mockImplementation((table: string) => {
       if (table === 'memberships') {
-        return mockMembershipQuery
+        membershipCallCount++
+        if (membershipCallCount === 1) {
+          return mockMembershipQuery
+        }
+        return mockProjectMemberQuery
       }
       if (table === 'projects') {
         projectsCallCount++
@@ -706,12 +703,7 @@ describe('removeProjectMember', () => {
         }
       }
       if (table === 'project_members') {
-        projectMembersCallCount++
-        if (projectMembersCallCount === 1) {
-          return projectMembersTableForSelect
-        } else {
-          return projectMembersTableForDelete
-        }
+        return projectMembersTableForDelete
       }
       return {}
     })
@@ -771,7 +763,7 @@ describe('updateProjectMemberRole', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -802,13 +794,14 @@ describe('updateProjectMemberRole', () => {
     const mockProjectMemberQuery: any = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
+      maybeSingle: vi.fn().mockResolvedValue({
         data: { role: PROJECT_ROLE.EDITOR },
         error: null,
       }),
     }
 
     let projectsCallCount = 0
+    let membershipCallCount = 0
     const projectsTableForMembership: any = {
       select: vi.fn(() => mockProjectSelectForMembership),
     }
@@ -818,7 +811,11 @@ describe('updateProjectMemberRole', () => {
 
     mockSupabase.from.mockImplementation((table: string) => {
       if (table === 'memberships') {
-        return mockMembershipQuery
+        membershipCallCount++
+        if (membershipCallCount === 1) {
+          return mockMembershipQuery
+        }
+        return mockProjectMemberQuery
       }
       if (table === 'projects') {
         projectsCallCount++
@@ -827,9 +824,6 @@ describe('updateProjectMemberRole', () => {
         } else {
           return projectsTableForRole
         }
-      }
-      if (table === 'project_members') {
-        return mockProjectMemberQuery
       }
       return {}
     })
@@ -856,7 +850,7 @@ describe('updateProjectMemberRole', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -887,7 +881,7 @@ describe('updateProjectMemberRole', () => {
     const mockProjectMemberQuery: any = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
+      maybeSingle: vi.fn().mockResolvedValue({
         data: { role: PROJECT_ROLE.OWNER },
         error: null,
       }),
@@ -904,15 +898,12 @@ describe('updateProjectMemberRole', () => {
     }
 
     let projectsCallCount = 0
-    let projectMembersCallCount = 0
+    let membershipCallCount = 0
     const projectsTableForMembership: any = {
       select: vi.fn(() => mockProjectSelectForMembership),
     }
     const projectsTableForRole: any = {
       select: vi.fn(() => mockProjectSelectForRole),
-    }
-    const projectMembersTableForSelect: any = {
-      select: vi.fn(() => mockProjectMemberQuery),
     }
     const projectMembersTableForUpdate: any = {
       update: vi.fn(() => mockProjectMemberUpdate),
@@ -920,7 +911,11 @@ describe('updateProjectMemberRole', () => {
 
     mockSupabase.from.mockImplementation((table: string) => {
       if (table === 'memberships') {
-        return mockMembershipQuery
+        membershipCallCount++
+        if (membershipCallCount === 1) {
+          return mockMembershipQuery
+        }
+        return mockProjectMemberQuery
       }
       if (table === 'projects') {
         projectsCallCount++
@@ -931,12 +926,7 @@ describe('updateProjectMemberRole', () => {
         }
       }
       if (table === 'project_members') {
-        projectMembersCallCount++
-        if (projectMembersCallCount === 1) {
-          return projectMembersTableForSelect
-        } else {
-          return projectMembersTableForUpdate
-        }
+        return projectMembersTableForUpdate
       }
       return {}
     })

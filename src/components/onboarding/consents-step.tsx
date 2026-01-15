@@ -182,7 +182,7 @@ export function ConsentsStep({ orgId, missingConsents, onComplete }: ConsentsSte
               <p className="font-semibold">Visi sutikimai priimti!</p>
             </div>
             <p className="text-sm text-green-700 mt-2">
-              Dabar laukite CORE patvirtinimo. Būsite informuoti, kai organizacija bus aktyvuota.
+              Dabar laukite Platformos patvirtinimo. Būsite informuoti, kai organizacija bus aktyvuota.
             </p>
           </div>
         )}

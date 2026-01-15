@@ -56,46 +56,19 @@ export async function getMemberRequirements(orgId: string, orgSlug?: string): Pr
     return requirements
   }
 
-  // Step 2: Check profile completeness
-  const { data: profile, error: profileError }: any = await supabase
-    .from('profiles')
-    .select('full_name')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  if (!profileError && profile) {
-    const fullName = profile.full_name?.trim() || ''
-    const hasFullName = fullName.length > 0
-    
-    // Check if full_name contains both first and last name (has space or is too short)
-    // Simple heuristic: if full_name doesn't contain a space, likely missing surname
-    const hasSpace = fullName.includes(' ')
-    const isTooShort = fullName.length < 3
-    
-    if (!hasFullName || (!hasSpace && !isTooShort) || isTooShort) {
-      const missingFields: string[] = []
-      if (!hasFullName) {
-        missingFields.push('vardas', 'pavardė')
-      } else if (!hasSpace) {
-        missingFields.push('pavardė')
-      }
-      
-      requirements.push({
-        id: 'profile-incomplete',
-        type: 'PROFILE_INCOMPLETE',
-        title: 'Nepilnas profilio informacija',
-        description: missingFields.length > 0 
-          ? `Prašome užpildyti: ${missingFields.join(', ')}.`
-          : 'Prašome užpildyti visus privalomus laukus.',
-        severity: 'warning',
-        actionUrl: orgSlug ? `/dashboard/${orgSlug}/profile` : `/dashboard/${orgId}/profile`,
-        actionLabel: 'Atnaujinti profilį',
-        metadata: {
-          missingFields,
-        },
-      })
-    }
-  }
+  // Step 2: Profile completeness check - REMOVED
+  // 
+  // RATIONALE (v19.0 governance compliance):
+  // - Vardas ir pavardė yra suvesti registracijos metu per member-registration-form
+  // - Owner patvirtina registraciją (ACTIVE status)
+  // - Narys negali pats redaguoti savo vardo/pavardės (tik owner gali)
+  // - Todėl šis tikrinimas yra perteklinis ir klaidinantis
+  //
+  // Jei full_name yra tuščias, tai reiškia, kad:
+  // 1. Registracijos procesas nebuvo užbaigtas tinkamai, arba
+  // 2. Handle_new_user trigger neveikia tinkamai
+  // 
+  // Abu atvejai turėtų būti sprendžiami sistemiškai, ne per vartotojo veiksmą.
 
   // Step 3: Check for unpaid invoices
   const { data: unpaidInvoices, error: invoicesError }: any = await supabase

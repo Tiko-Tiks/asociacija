@@ -1,31 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendEmail } from '@/lib/email'
+import { getAppUrl } from '@/lib/app-url'
 import { randomBytes } from 'crypto'
 
 /**
  * API Route: Community Registration Request
- * 
- * NEW FLOW:
- * 1. Creates user account automatically
- * 2. Creates organization with PENDING status
- * 3. Assigns user as OWNER
- * 4. Sends email with password and onboarding link
- * 5. Saves to community_applications table
+ *
+ * NEW FLOW (Two-Step Registration):
+ * 1. Saves registration data to community_applications with unique token
+ * 2. Sends email with onboarding link (token-based)
+ * 3. User completes onboarding and account/org are created
  */
 
 interface RegistrationData {
   communityName: string
-  contactPerson: string
+  contactPerson?: string
   email: string
-  description: string
+  description?: string
+  registrationNumber?: string
+  address?: string
+  usagePurpose?: string
   timestamp: string
 }
 
 const CORE_ADMIN_EMAIL = process.env.CORE_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'admin@branduolys.lt'
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL 
-  ? `https://${process.env.VERCEL_URL}` 
-  : 'https://asociacija.net')
 
 /**
  * Generate slug from organization name
@@ -46,162 +45,122 @@ function generateSlug(name: string): string {
 async function generateUniqueSlug(supabase: any, baseSlug: string): Promise<string> {
   let slug = baseSlug
   let counter = 1
-  
+
   while (true) {
     const { data } = await supabase
       .from('orgs')
       .select('id')
       .eq('slug', slug)
       .maybeSingle()
-    
+
     if (!data) {
       return slug
     }
-    
+
     slug = `${baseSlug}-${counter}`
     counter++
   }
 }
 
 /**
- * Generate random password
+ * Generate unique token for onboarding link
  */
-function generatePassword(): string {
-  return randomBytes(16).toString('base64').replace(/[^a-zA-Z0-9]/g, '').substring(0, 16)
+function generateToken(): string {
+  return randomBytes(32).toString('base64url')
 }
 
 export async function POST(request: NextRequest) {
   try {
     const data: RegistrationData = await request.json()
 
+    const communityName = data.communityName?.trim()
+    const email = data.email?.trim().toLowerCase()
+    const contactPerson = data.contactPerson?.trim() || null
+    const description = data.description?.trim() || null
+    const registrationNumber = data.registrationNumber?.trim() || null
+    const address = data.address?.trim() || null
+    const usagePurpose = data.usagePurpose?.trim() || null
+
     // Validate required fields
-    if (!data.communityName || !data.email) {
+    if (!communityName || !email) {
       return NextResponse.json(
-        { error: 'Trūksta privalomų laukų' },
+        { error: 'Trūksta privalomų laukų.' },
         { status: 400 }
       )
     }
 
     const supabase = createAdminClient()
 
-    // Check if user already exists
-    const { data: existingUser } = await supabase.auth.admin.getUserByEmail(data.email)
-    
-    if (existingUser?.user) {
-      return NextResponse.json(
-        { error: 'Vartotojas su šiuo el. paštu jau egzistuoja' },
-        { status: 400 }
-      )
+    // Check if application already exists for this email
+    const { data: existingApp } = await supabase
+      .from('community_applications')
+      .select('id, status, token, token_expires_at')
+      .eq('email', email)
+      .maybeSingle()
+
+    // If application exists and is not rejected, return existing token
+    if (existingApp && existingApp.status !== 'REJECTED') {
+      // Check if token is still valid
+      if (existingApp.token && existingApp.token_expires_at) {
+        const tokenExpiresAt = new Date(existingApp.token_expires_at)
+        if (tokenExpiresAt > new Date()) {
+          // Token is still valid, return it
+          const onboardingLink = `${getAppUrl()}/onboarding/continue?token=${existingApp.token}`
+          return NextResponse.json({
+            success: true,
+            message: 'Paraiška su šiuo el. paštu jau pateikta. Patikrinkite el. paštą dėl nuorodos.',
+            existing: true,
+            onboardingLink: onboardingLink,
+          })
+        }
+      }
+
+      // Token expired or missing - create new token
+      // Continue with new registration below
     }
 
-    // Generate password
-    const password = generatePassword()
+    // Generate unique token for onboarding link
+    const token = generateToken()
+    const tokenExpiresAt = new Date()
+    tokenExpiresAt.setDate(tokenExpiresAt.getDate() + 30) // Token valid for 30 days
 
-    // Step 1: Create user account
-    const { data: newUser, error: userError } = await supabase.auth.admin.createUser({
-      email: data.email,
-      password: password,
-      email_confirm: true, // Auto-confirm email
-      user_metadata: {
-        full_name: data.contactPerson || data.communityName,
-        registration_source: 'community_registration',
-      },
-    })
-
-    if (userError || !newUser?.user) {
-      console.error('Error creating user:', userError)
-      return NextResponse.json(
-        { error: 'Nepavyko sukurti paskyros' },
-        { status: 500 }
-      )
-    }
-
-    // Step 2: Create profile
-    const { error: profileError } = await supabase
-      .from('profiles')
+    // Step 1: Save to community_applications table with token
+    const { data: newApplication, error: appError }: any = await supabase
+      .from('community_applications')
       .insert({
-        id: newUser.user.id,
-        full_name: data.contactPerson || data.communityName,
-        email: data.email,
+        community_name: communityName,
+        contact_person: contactPerson,
+        email,
+        description,
+        registration_number: registrationNumber,
+        address,
+        usage_purpose: usagePurpose,
+        status: 'PENDING', // Will change to IN_PROGRESS when onboarding starts
+        token: token,
+        token_expires_at: tokenExpiresAt.toISOString(),
+        created_at: data.timestamp,
       })
-
-    if (profileError && profileError.code !== '23505') { // Ignore duplicate key error
-      console.error('Error creating profile:', profileError)
-      // Continue anyway - profile might exist
-    }
-
-    // Step 3: Generate unique slug
-    const baseSlug = generateSlug(data.communityName)
-    const uniqueSlug = await generateUniqueSlug(supabase, baseSlug)
-
-    // Step 4: Create organization with PENDING status
-    const { data: newOrg, error: orgError }: any = await supabase
-      .from('orgs')
-      .insert({
-        name: data.communityName,
-        slug: uniqueSlug,
-        description: data.description || null,
-        status: 'PENDING', // Will be activated after onboarding completion
-        created_by: newUser.user.id,
-      })
-      .select('id, slug, name')
+      .select('id')
       .single()
 
-    if (orgError || !newOrg) {
-      console.error('Error creating organization:', orgError)
-      // Try to delete user if org creation failed
-      await supabase.auth.admin.deleteUser(newUser.user.id)
+    if (appError || !newApplication) {
+      console.error('Error saving application:', appError)
       return NextResponse.json(
-        { error: 'Nepavyko sukurti organizacijos' },
+        { error: 'Nepavyko išsaugoti paraiškos.' },
         { status: 500 }
       )
     }
 
-    // Step 5: Create membership (OWNER role)
-    const { error: membershipError } = await supabase
-      .from('memberships')
-      .insert({
-        org_id: newOrg.id,
-        user_id: newUser.user.id,
-        role: 'OWNER',
-        member_status: 'ACTIVE',
-      })
-
-    if (membershipError) {
-      console.error('Error creating membership:', membershipError)
-      // Try to clean up
-      await supabase.from('orgs').delete().eq('id', newOrg.id)
-      await supabase.auth.admin.deleteUser(newUser.user.id)
-      return NextResponse.json(
-        { error: 'Nepavyko sukurti narystės' },
-        { status: 500 }
-      )
-    }
-
-    // Step 6: Save to community_applications table
-    try {
-      await supabase
-        .from('community_applications')
-        .insert({
-          community_name: data.communityName,
-          contact_person: data.contactPerson || null,
-          email: data.email,
-          description: data.description || null,
-          status: 'IN_PROGRESS', // Changed from PENDING to IN_PROGRESS
-          created_at: data.timestamp,
-        })
-    } catch (dbError) {
-      // Table might not exist, continue anyway
-      console.log('Applications table not available, skipping DB save')
-    }
-
-    // Step 7: Send email notification to admin
+    // Step 2: Send email notification to admin
     const { getRegistrationAdminEmail } = await import('@/lib/email-templates')
     const adminEmail = getRegistrationAdminEmail({
-      communityName: data.communityName,
-      contactPerson: data.contactPerson || null,
-      email: data.email,
-      description: data.description || null,
+      communityName,
+      contactPerson,
+      email,
+      description,
+      registrationNumber,
+      address,
+      usagePurpose,
       timestamp: data.timestamp,
     })
 
@@ -212,32 +171,31 @@ export async function POST(request: NextRequest) {
       text: adminEmail.text,
     })
 
-    // Step 8: Send welcome email with password and onboarding link
-    const onboardingLink = `${APP_URL}/dashboard/${newOrg.slug}/onboarding`
+    // Step 3: Send confirmation email with onboarding link
+    const APP_URL = getAppUrl()
+    const onboardingLink = `${APP_URL}/onboarding/continue?token=${token}`
     const { getRegistrationConfirmationEmail } = await import('@/lib/email-templates')
     const confirmationEmail = getRegistrationConfirmationEmail({
-      communityName: data.communityName,
-      email: data.email,
+      communityName,
+      email,
       onboardingLink: onboardingLink,
-      password: password, // Include password in email
     })
 
     await sendEmail({
-      to: data.email,
+      to: email,
       subject: confirmationEmail.subject,
       html: confirmationEmail.html,
       text: confirmationEmail.text,
     })
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Paskyra sukurta. Patikrinkite el. paštą.',
-      orgSlug: newOrg.slug,
+    return NextResponse.json({
+      success: true,
+      message: 'Paraiška gauta. Patikrinkite el. paštą dėl tolesnių žingsnių.',
     })
   } catch (error) {
     console.error('Error processing registration:', error)
     return NextResponse.json(
-      { error: 'Nepavyko apdoroti paraiškos' },
+      { error: 'Nepavyko apdoroti paraiškos.' },
       { status: 500 }
     )
   }

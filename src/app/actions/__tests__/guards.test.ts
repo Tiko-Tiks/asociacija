@@ -58,7 +58,7 @@ describe('loadProjectRole', () => {
     )
   })
 
-  it("throws 'auth_violation' when project_members query returns RLS error (code 42501)", async () => {
+  it("throws 'auth_violation' when memberships query returns RLS error (code 42501)", async () => {
     const mockProjectQuery: any = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
@@ -68,10 +68,10 @@ describe('loadProjectRole', () => {
       }),
     }
 
-    const mockMemberQuery: any = {
+    const mockMembershipQuery: any = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
+      maybeSingle: vi.fn().mockResolvedValue({
         data: null,
         error: { code: '42501', message: 'RLS violation' },
       }),
@@ -81,21 +81,16 @@ describe('loadProjectRole', () => {
       select: vi.fn(() => mockProjectQuery),
     }
 
-    const projectMembersTable: any = {
-      select: vi.fn(() => {
-        const firstEq: any = {
-          eq: vi.fn(() => mockMemberQuery),
-        }
-        return firstEq
-      }),
+    const membershipsTable: any = {
+      select: vi.fn(() => mockMembershipQuery),
     }
 
     mockSupabase.from.mockImplementation((table: string) => {
       if (table === 'projects') {
         return projectsTable
       }
-      if (table === 'project_members') {
-        return projectMembersTable
+      if (table === 'memberships') {
+        return membershipsTable
       }
       return {}
     })
@@ -105,7 +100,7 @@ describe('loadProjectRole', () => {
     )
   })
 
-  it("throws 'cross_org_violation' when project_members not found", async () => {
+  it("throws 'cross_org_violation' when memberships not found", async () => {
     const mockProjectQuery: any = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
@@ -115,10 +110,10 @@ describe('loadProjectRole', () => {
       }),
     }
 
-    const mockMemberQuery: any = {
+    const mockMembershipQuery: any = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
+      maybeSingle: vi.fn().mockResolvedValue({
         data: null,
         error: { message: 'Not found' },
       }),
@@ -128,21 +123,16 @@ describe('loadProjectRole', () => {
       select: vi.fn(() => mockProjectQuery),
     }
 
-    const projectMembersTable: any = {
-      select: vi.fn(() => {
-        const firstEq: any = {
-          eq: vi.fn(() => mockMemberQuery),
-        }
-        return firstEq
-      }),
+    const membershipsTable: any = {
+      select: vi.fn(() => mockMembershipQuery),
     }
 
     mockSupabase.from.mockImplementation((table: string) => {
       if (table === 'projects') {
         return projectsTable
       }
-      if (table === 'project_members') {
-        return projectMembersTable
+      if (table === 'memberships') {
+        return membershipsTable
       }
       return {}
     })
@@ -162,10 +152,10 @@ describe('loadProjectRole', () => {
       }),
     }
 
-    const mockMemberQuery: any = {
+    const mockMembershipQuery: any = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
+      maybeSingle: vi.fn().mockResolvedValue({
         data: { role: 'OWNER' },
         error: null,
       }),
@@ -175,21 +165,16 @@ describe('loadProjectRole', () => {
       select: vi.fn(() => mockProjectQuery),
     }
 
-    const projectMembersTable: any = {
-      select: vi.fn(() => {
-        const firstEq: any = {
-          eq: vi.fn(() => mockMemberQuery),
-        }
-        return firstEq
-      }),
+    const membershipsTable: any = {
+      select: vi.fn(() => mockMembershipQuery),
     }
 
     mockSupabase.from.mockImplementation((table: string) => {
       if (table === 'projects') {
         return projectsTable
       }
-      if (table === 'project_members') {
-        return projectMembersTable
+      if (table === 'memberships') {
+        return membershipsTable
       }
       return {}
     })
@@ -197,8 +182,8 @@ describe('loadProjectRole', () => {
     const result = await loadProjectRole(mockSupabase, 'project-id', 'user-id')
 
     expect(result).toBe('OWNER')
-    expect(projectsTable.select).toHaveBeenCalledWith('id')
-    expect(projectMembersTable.select).toHaveBeenCalledWith('role')
+    expect(projectsTable.select).toHaveBeenCalledWith('id, org_id')
+    expect(membershipsTable.select).toHaveBeenCalledWith('id, role, member_status')
   })
 })
 

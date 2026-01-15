@@ -14,33 +14,51 @@ import { revalidatePath } from 'next/cache'
  * Sends email with link to continue.
  */
 
+import { getAppUrl } from '@/lib/app-url'
+
 export interface GovernanceAnswers {
   [key: string]: string | number | boolean
 }
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL 
-  ? `https://${process.env.VERCEL_URL}` 
-  : 'https://asociacija.net')
-
 export async function saveGovernanceDraft(
   orgId: string,
   answers: GovernanceAnswers,
+  allowUpdateForActive: boolean = false,
 ): Promise<{ success: boolean; error?: string; emailSent?: boolean }> {
   try {
     const supabase = await createClient()
     const user = await requireAuth(supabase)
 
-    // Check access (must be OWNER and org must NOT be ACTIVE)
-    try {
-      await requireOnboardingAccess(orgId)
-    } catch (error: any) {
-      if (error?.code === 'access_denied' || error?.code === 'auth_violation') {
+    // Step 1: Check access
+    if (allowUpdateForActive) {
+      // For compliance fixes: only check if user is OWNER
+      const { data: membership }: any = await supabase
+        .from('memberships')
+        .select('role, member_status')
+        .eq('user_id', user.id)
+        .eq('org_id', orgId)
+        .eq('member_status', 'ACTIVE')
+        .maybeSingle()
+      
+      if (!membership || membership.role !== 'OWNER') {
         return { 
           success: false, 
-          error: 'Neturite teisių išsaugoti valdymo atsakymų' 
+          error: 'Tik pirmininkas (OWNER) gali išsaugoti valdymo atsakymų juodraštį' 
         }
       }
-      throw error
+    } else {
+      // For onboarding: use existing check
+      try {
+        await requireOnboardingAccess(orgId)
+      } catch (error: any) {
+        if (error?.code === 'access_denied' || error?.code === 'auth_violation') {
+          return { 
+            success: false, 
+            error: 'Neturite teisių išsaugoti valdymo atsakymų' 
+          }
+        }
+        throw error
+      }
     }
 
     // Check if governance config exists
@@ -104,7 +122,7 @@ export async function saveGovernanceDraft(
     let emailSent = false
     if (org && user.email) {
       try {
-        const continueLink = `${APP_URL}/dashboard/${org.slug}/onboarding`
+        const continueLink = `${getAppUrl()}/dashboard/${org.slug}/onboarding`
         const { getOnboardingDraftSavedEmail } = await import('@/lib/email-templates')
         const email = getOnboardingDraftSavedEmail({
           orgName: org.name,

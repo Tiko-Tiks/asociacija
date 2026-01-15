@@ -13,9 +13,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Calendar } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
 import { createMeetingGA, canScheduleMeeting } from '@/app/actions/meetings'
 import { useToast } from '@/components/ui/use-toast'
+import { DateTimePicker } from '@/components/ui/datetime-picker'
 
 interface CreateMeetingModalProps {
   open: boolean
@@ -32,7 +33,13 @@ export function CreateMeetingModal({
 }: CreateMeetingModalProps) {
   const { toast } = useToast()
   const [title, setTitle] = useState('')
-  const [scheduledAt, setScheduledAt] = useState('')
+  const [scheduledAt, setScheduledAt] = useState(() => {
+    // Default to tomorrow at 9:00
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    tomorrow.setHours(9, 0, 0, 0)
+    return tomorrow.toISOString()
+  })
   const [location, setLocation] = useState('')
   const [loading, setLoading] = useState(false)
   const [scheduleCheck, setScheduleCheck] = useState<{
@@ -98,6 +105,14 @@ export function CreateMeetingModal({
     }
   }
 
+  // Helper to use recommended date
+  const useRecommendedDate = () => {
+    if (scheduleCheck?.earliest_allowed) {
+      // Use ISO string directly
+      setScheduledAt(scheduleCheck.earliest_allowed)
+    }
+  }
+
   const formatEarliestAllowed = (dateStr: string) => {
     const date = new Date(dateStr)
     return date.toLocaleString('lt-LT', {
@@ -132,12 +147,11 @@ export function CreateMeetingModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="scheduled_at">Data ir laikas *</Label>
-            <Input
+            <Label>Data ir laikas *</Label>
+            <DateTimePicker
               id="scheduled_at"
-              type="datetime-local"
               value={scheduledAt}
-              onChange={(e) => setScheduledAt(e.target.value)}
+              onChange={setScheduledAt}
               required
             />
             {scheduleCheck && (
@@ -149,13 +163,33 @@ export function CreateMeetingModal({
                     </AlertDescription>
                   </Alert>
                 ) : (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
+                  <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/10">
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
                     <AlertDescription>
-                      Data per anksti. Ankščiausia galima data:{' '}
-                      <strong>{formatEarliestAllowed(scheduleCheck.earliest_allowed)}</strong>
-                      <br />
-                      Pranešimo terminas: {scheduleCheck.notice_days} dienos.
+                      <div className="space-y-3">
+                        <div className="text-sm text-slate-700 dark:text-slate-300">
+                          <p className="mb-2">
+                            Susirinkimo data neatitinka pranešimo termino taisyklės. Pagal governance nustatymus, susirinkimas turi būti suplanuotas ne mažiau kaip{' '}
+                            <strong className="text-slate-900 dark:text-slate-100">{scheduleCheck.notice_days} {scheduleCheck.notice_days === 1 ? 'dieną' : 'dienas'}</strong> į priekį.
+                          </p>
+                          <div className="bg-white dark:bg-slate-800 p-3 rounded border border-amber-200 dark:border-amber-800">
+                            <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">Ankščiausia galima data:</p>
+                            <p className="font-medium text-slate-900 dark:text-slate-100">
+                              {formatEarliestAllowed(scheduleCheck.earliest_allowed)}
+                            </p>
+                          </div>
+                        </div>
+                        <Button 
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={useRecommendedDate}
+                          className="border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20"
+                        >
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Naudoti rekomenduojamą datą
+                        </Button>
+                      </div>
                     </AlertDescription>
                   </Alert>
                 )}
@@ -177,7 +211,10 @@ export function CreateMeetingModal({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Atšaukti
             </Button>
-            <Button type="submit" disabled={loading || !scheduleCheck?.allowed}>
+            <Button 
+              type="submit" 
+              disabled={loading || (scheduleCheck !== null && !scheduleCheck.allowed)}
+            >
               {loading ? 'Kuriama...' : 'Sukurti'}
             </Button>
           </DialogFooter>

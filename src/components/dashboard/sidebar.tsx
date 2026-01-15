@@ -1,3 +1,5 @@
+// Dizainas pagal asociacija.net gaires v2026-01 – minimalistinis, audit-safe, institutional
+
 "use client"
 
 import Link from "next/link"
@@ -15,28 +17,23 @@ import {
   FileSearch,
   Calendar,
   Lightbulb,
+  Settings,
+  LogOut,
+  Brain,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { OrgSwitcher } from "@/components/dashboard/org-switcher"
 import { Separator } from "@/components/ui/separator"
+import { Logo } from "@/components/ui/logo"
 
+// Pagrindinė navigacija pagal gaires
 const navigation = [
   {
-    name: "Apžvalga",
+    name: "Pagrindinis",
     href: "/dashboard",
     icon: LayoutDashboard,
-  },
-  {
-    name: "Nariai",
-    href: "/dashboard/members",
-    icon: Users,
-  },
-  {
-    name: "Finansai",
-    href: "/dashboard/invoices",
-    icon: FileText,
   },
   {
     name: "Idėjos",
@@ -44,40 +41,59 @@ const navigation = [
     icon: Lightbulb,
   },
   {
-    name: "Projektai",
-    href: "/dashboard/projects",
-    icon: FolderKanban,
-  },
-  {
-    name: "Susirinkimai",
-    href: "/dashboard/governance",
-    icon: Calendar,
-  },
-  {
     name: "Nutarimai",
     href: "/dashboard/resolutions",
     icon: Gavel,
   },
   {
-    name: "Istorija",
-    href: "/dashboard/history",
-    icon: Clock,
+    name: "Renginiai",
+    href: "/dashboard/governance",
+    icon: Calendar,
   },
   {
-    name: "Audito žurnalas",
-    href: "/dashboard/settings/audit",
+    name: "Nariai",
+    href: "/dashboard/members",
+    icon: Users,
+  },
+  {
+    name: "Projektai",
+    href: "/dashboard/projects",
+    icon: FolderKanban,
+  },
+  {
+    name: "Biudžetas",
+    href: "/dashboard/invoices",
+    icon: FileText,
+  },
+  {
+    name: "Audit Log",
+    href: "/dashboard/history",
     icon: FileSearch,
+  },
+  {
+    name: "AI Pagalba",
+    href: "/dashboard/ai-help",
+    icon: Brain,
   },
 ]
 
 interface SidebarProps {
   className?: string
-  orgs?: Array<{ id: string; name: string; slug: string; membership_id: string }>
+  orgs?: Array<{ id: string; name: string; slug: string; membership_id: string; logo_url?: string | null }>
   selectedOrgId?: string
   isAdmin?: boolean
+  organizationName?: string
+  orgLogoUrl?: string | null
 }
 
-export function Sidebar({ className, orgs = [], selectedOrgId, isAdmin = false }: SidebarProps) {
+export function Sidebar({ 
+  className, 
+  orgs = [], 
+  selectedOrgId, 
+  isAdmin = false,
+  organizationName,
+  orgLogoUrl,
+}: SidebarProps) {
   const pathname = usePathname()
 
   // Extract slug from URL path (e.g., /dashboard/demo-org/members -> demo-org)
@@ -111,37 +127,62 @@ export function Sidebar({ className, orgs = [], selectedOrgId, isAdmin = false }
     return href
   }
 
+  const displayOrgName = organizationName || currentOrg?.name || "Organizacija"
+  const displayLogoUrl = orgLogoUrl || currentOrg?.logo_url
+
   return (
     <div
       className={cn(
-        "flex h-full w-64 flex-col border-r bg-slate-50",
+        "flex h-full w-64 flex-col border-r bg-white dark:bg-gray-900",
         className
       )}
     >
-      {/* Org Switcher */}
-      {orgs.length > 0 && (
-        <div className="px-3 pt-4 pb-2">
-          <OrgSwitcher orgs={orgs} selectedOrgId={selectedOrgId} />
+      {/* Logo + Organizacijos pavadinimas */}
+      <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-gray-800">
+        <div className="flex items-center gap-3">
+          <Logo 
+            variant="icon" 
+            size="sm" 
+            orgLogoUrl={displayLogoUrl}
+            orgName={displayOrgName}
+            showText={false}
+          />
+          <div className="flex-1 min-w-0">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+              {displayOrgName}
+            </h2>
+          </div>
         </div>
+      </div>
+
+      {/* Org Switcher (jei yra daugiau nei viena organizacija) */}
+      {orgs.length > 1 && (
+        <>
+          <div className="px-3 pt-3 pb-2">
+            <OrgSwitcher orgs={orgs} selectedOrgId={selectedOrgId} />
+          </div>
+          <Separator className="my-2" />
+        </>
       )}
-      {orgs.length > 0 && <Separator className="my-2" />}
       
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      {/* Navigacija */}
+      <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
         {navigation.map((item) => {
-          const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+          const targetHref = getHrefWithSlug(item.href)
+          const isActive = pathname === targetHref || pathname?.startsWith(targetHref + '/')
           return (
             <Link
               key={item.name}
-              href={getHrefWithSlug(item.href)}
+              href={targetHref}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                "hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                "hover:bg-gray-100 dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                 isActive
-                  ? "bg-slate-200 text-slate-900"
-                  : "text-slate-700 hover:text-slate-900"
+                  ? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary"
+                  : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
               )}
             >
-              <item.icon className="h-5 w-5" aria-hidden="true" />
+              <item.icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
               <span>{item.name}</span>
             </Link>
           )
@@ -150,23 +191,40 @@ export function Sidebar({ className, orgs = [], selectedOrgId, isAdmin = false }
         {/* Admin Link - visible only if isAdmin is true */}
         {isAdmin && (
           <>
-            <div className="my-2 border-t border-slate-200" />
+            <div className="my-2 border-t border-gray-200 dark:border-gray-800" />
             <Link
               href="/admin"
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                "hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                "hover:bg-gray-100 dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                 pathname === "/admin"
-                  ? "bg-slate-200 text-slate-900"
-                  : "text-slate-700 hover:text-slate-900"
+                  ? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary"
+                  : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
               )}
             >
-              <Shield className="h-5 w-5" aria-hidden="true" />
+              <Shield className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
               <span>Administratorius</span>
             </Link>
           </>
         )}
       </nav>
+
+      {/* Apačioje: Nustatymai, Atsijungti */}
+      <div className="px-3 py-3 border-t border-gray-200 dark:border-gray-800 space-y-1">
+        <Link
+          href={currentOrg ? `/dashboard/${currentOrg.slug}/settings` : '/dashboard/settings'}
+          className={cn(
+            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+            "hover:bg-gray-100 dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+            pathname?.includes('/settings')
+              ? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary"
+              : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
+          )}
+        >
+          <Settings className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+          <span>Nustatymai</span>
+        </Link>
+      </div>
     </div>
   )
 }
@@ -175,10 +233,14 @@ export function MobileSidebar({
   orgs = [],
   selectedOrgId,
   isAdmin = false,
+  organizationName,
+  orgLogoUrl,
 }: {
-  orgs?: Array<{ id: string; name: string; slug: string; membership_id: string }>
+  orgs?: Array<{ id: string; name: string; slug: string; membership_id: string; logo_url?: string | null }>
   selectedOrgId?: string
   isAdmin?: boolean
+  organizationName?: string
+  orgLogoUrl?: string | null
 }) {
   const pathname = usePathname()
 
@@ -215,31 +277,53 @@ export function MobileSidebar({
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="w-64 p-0">
-        <div className="flex h-full w-full flex-col border-r bg-slate-50">
-          {/* Org Switcher */}
-          {orgs.length > 0 && (
-            <div className="px-3 pt-4 pb-2">
-              <OrgSwitcher orgs={orgs} selectedOrgId={selectedOrgId} />
+        <div className="flex h-full w-full flex-col border-r bg-white dark:bg-gray-900">
+          {/* Logo + Organizacijos pavadinimas */}
+          <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-gray-800">
+            <div className="flex items-center gap-3">
+              <Logo 
+                variant="icon" 
+                size="sm" 
+                orgLogoUrl={orgLogoUrl || orgs.find(o => o.id === selectedOrgId)?.logo_url}
+                orgName={organizationName || orgs.find(o => o.id === selectedOrgId)?.name}
+                showText={false}
+              />
+              <div className="flex-1 min-w-0">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                  {organizationName || orgs.find(o => o.id === selectedOrgId)?.name || "Organizacija"}
+                </h2>
+              </div>
             </div>
+          </div>
+
+          {/* Org Switcher (jei yra daugiau nei viena organizacija) */}
+          {orgs.length > 1 && (
+            <>
+              <div className="px-3 pt-3 pb-2">
+                <OrgSwitcher orgs={orgs} selectedOrgId={selectedOrgId} />
+              </div>
+              <Separator className="my-2" />
+            </>
           )}
-          {orgs.length > 0 && <Separator className="my-2" />}
           
-          <nav className="flex-1 space-y-1 px-3 py-4">
+          {/* Navigacija */}
+          <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
             {navigation.map((item) => {
-              const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+              const targetHref = getHrefWithSlug(item.href)
+              const isActive = pathname === targetHref || pathname?.startsWith(targetHref + '/')
               return (
                 <Link
                   key={item.name}
-                  href={getHrefWithSlug(item.href)}
+                  href={targetHref}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                    "hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                    "hover:bg-gray-100 dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                     isActive
-                      ? "bg-slate-200 text-slate-900"
-                      : "text-slate-700 hover:text-slate-900"
+                      ? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary"
+                      : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
                   )}
                 >
-                  <item.icon className="h-5 w-5" aria-hidden="true" />
+                  <item.icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
                   <span>{item.name}</span>
                 </Link>
               )
@@ -248,23 +332,40 @@ export function MobileSidebar({
             {/* Admin Link - visible only if isAdmin is true */}
             {isAdmin && (
               <>
-                <div className="my-2 border-t border-slate-200" />
+                <div className="my-2 border-t border-gray-200 dark:border-gray-800" />
                 <Link
                   href="/admin"
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                    "hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                    "hover:bg-gray-100 dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                     pathname === "/admin"
-                      ? "bg-slate-200 text-slate-900"
-                      : "text-slate-700 hover:text-slate-900"
+                      ? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary"
+                      : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
                   )}
                 >
-                  <Shield className="h-5 w-5" aria-hidden="true" />
+                  <Shield className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
                   <span>Administratorius</span>
                 </Link>
               </>
             )}
           </nav>
+
+          {/* Apačioje: Nustatymai */}
+          <div className="px-3 py-3 border-t border-gray-200 dark:border-gray-800">
+            <Link
+              href={orgs.find(o => o.id === selectedOrgId) ? `/dashboard/${orgs.find(o => o.id === selectedOrgId)?.slug}/settings` : '/dashboard/settings'}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                "hover:bg-gray-100 dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                pathname?.includes('/settings')
+                  ? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary"
+                  : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
+              )}
+            >
+              <Settings className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+              <span>Nustatymai</span>
+            </Link>
+          </div>
         </div>
       </SheetContent>
     </Sheet>

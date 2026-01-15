@@ -81,7 +81,7 @@ export async function getGlobalStats(): Promise<GlobalStats> {
       } else {
         effectiveStatus = 'PENDING'
       }
-    } else if (!org.status || org.status === 'PENDING') {
+    } else if (!org.status || org.status === 'PENDING' || org.status === 'ONBOARDING') {
       if (hasGovernanceConfig && hasProposedRuleset && !hasActiveRuleset) {
         effectiveStatus = 'PENDING_REVIEW'
       } else if (!hasGovernanceConfig || !hasProposedRuleset) {

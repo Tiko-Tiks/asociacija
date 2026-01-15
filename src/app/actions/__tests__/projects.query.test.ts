@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createProject, listProjects } from '../projects'
 import { createClient } from '@/lib/supabase/server'
 
@@ -17,10 +17,16 @@ describe('createProject', () => {
     },
     from: vi.fn(),
   }
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     vi.clearAllMocks()
     ;(createClient as any).mockResolvedValue(mockSupabase)
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    consoleErrorSpy?.mockRestore()
   })
 
   it("throws 'auth_violation' when user is not authenticated", async () => {
@@ -51,12 +57,12 @@ describe('createProject', () => {
 
     mockSupabase.from.mockReturnValue(mockMembershipQuery)
 
-    await expect(createProject('invalid-membership-id', 'Project Name')).rejects.toThrow(
+    await expect(createProject('membership-id', 'Project Name')).rejects.toThrow(
       'cross_org_violation'
     )
   })
 
-  it("throws 'cross_org_violation' when membership.status !== 'ACTIVE'", async () => {
+  it("throws 'cross_org_violation' when membership is not ACTIVE", async () => {
     mockSupabase.auth.getUser.mockResolvedValue({
       data: { user: { id: 'user-id' } },
       error: null,
@@ -68,7 +74,7 @@ describe('createProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'SUSPENDED',
+          member_status: 'SUSPENDED',
           user_id: 'user-id',
         },
         error: null,
@@ -94,7 +100,7 @@ describe('createProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'different-user-id',
         },
         error: null,
@@ -120,7 +126,7 @@ describe('createProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -136,16 +142,12 @@ describe('createProject', () => {
       }),
     }
 
-    const projectsTable: any = {
-      insert: vi.fn(() => mockProjectInsert),
-    }
-
     mockSupabase.from.mockImplementation((table: string) => {
       if (table === 'memberships') {
         return mockMembershipQuery
       }
       if (table === 'projects') {
-        return projectsTable
+        return mockProjectInsert
       }
       return {}
     })
@@ -155,7 +157,7 @@ describe('createProject', () => {
     )
   })
 
-  it('succeeds: inserts with org_id from membership, name trimmed, status DRAFT, returns project id', async () => {
+  it('returns success=false when insert fails (non-RLS error)', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({
       data: { user: { id: 'user-id' } },
       error: null,
@@ -167,7 +169,7 @@ describe('createProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -178,13 +180,9 @@ describe('createProject', () => {
       insert: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
       single: vi.fn().mockResolvedValue({
-        data: { id: 'project-id' },
-        error: null,
+        data: null,
+        error: { message: 'Insert failed' },
       }),
-    }
-
-    const projectsTable: any = {
-      insert: vi.fn(() => mockProjectInsert),
     }
 
     mockSupabase.from.mockImplementation((table: string) => {
@@ -192,20 +190,71 @@ describe('createProject', () => {
         return mockMembershipQuery
       }
       if (table === 'projects') {
-        return projectsTable
+        return mockProjectInsert
+      }
+      return {}
+    })
+
+    const result = await createProject('membership-id', 'Project Name')
+
+    expect(result).toEqual({ success: false, error: 'OPERATION_FAILED' })
+  })
+
+  it('succeeds and trims title', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({
+      data: { user: { id: 'user-id' } },
+      error: null,
+    })
+
+    const mockMembershipQuery: any = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          org_id: 'org-id',
+          member_status: 'ACTIVE',
+          user_id: 'user-id',
+        },
+        error: null,
+      }),
+    }
+
+    const mockProjectInsert: any = {
+      insert: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          id: 'project-id',
+          org_id: 'org-id',
+          idea_id: null,
+          title: 'Project Name',
+          description: null,
+          status: 'PLANNING',
+          budget_eur: 0,
+          created_by: 'user-id',
+          created_at: '2026-01-01T00:00:00.000Z',
+          funding_opened_at: '2026-01-01T00:00:00.000Z',
+          completed_at: null,
+        },
+        error: null,
+      }),
+    }
+
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'memberships') {
+        return mockMembershipQuery
+      }
+      if (table === 'projects') {
+        return mockProjectInsert
       }
       return {}
     })
 
     const result = await createProject('membership-id', '  Project Name  ')
 
-    expect(result).toEqual({ id: 'project-id' })
-    expect(projectsTable.insert).toHaveBeenCalledWith({
-      org_id: 'org-id',
-      membership_id: 'membership-id',
-      name: 'Project Name',
-      status: 'DRAFT',
-    })
+    expect(result.success).toBe(true)
+    expect(result.data?.id).toBe('project-id')
+    expect(result.data?.title).toBe('Project Name')
   })
 })
 
@@ -216,10 +265,16 @@ describe('listProjects', () => {
     },
     from: vi.fn(),
   }
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     vi.clearAllMocks()
     ;(createClient as any).mockResolvedValue(mockSupabase)
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    consoleErrorSpy?.mockRestore()
   })
 
   it("throws 'auth_violation' when user not authenticated", async () => {
@@ -228,61 +283,49 @@ describe('listProjects', () => {
       error: { message: 'Not authenticated' },
     })
 
-    await expect(listProjects()).rejects.toThrow('auth_violation')
+    await expect(listProjects('org-id')).rejects.toThrow('auth_violation')
   })
 
-  it("returns [] when no ACTIVE memberships", async () => {
+  it('returns [] when no projects', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({
       data: { user: { id: 'user-id' } },
       error: null,
     })
 
-    const secondEq: any = vi.fn().mockResolvedValue({
-      data: [],
-      error: null,
-    })
-
-    const firstEq: any = vi.fn().mockReturnValue({
-      eq: secondEq,
-    })
-
-    const mockMembershipQuery: any = {
-      select: vi.fn().mockReturnValue({
-        eq: firstEq,
+    const mockProjectQuery: any = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({
+        data: [],
+        error: null,
       }),
     }
 
-    mockSupabase.from.mockReturnValue(mockMembershipQuery)
+    mockSupabase.from.mockReturnValue(mockProjectQuery)
 
-    const result = await listProjects()
+    const result = await listProjects('org-id')
 
     expect(result).toEqual([])
   })
 
-  it("throws 'operation_failed' when memberships query fails", async () => {
+  it("throws 'operation_failed' when query fails", async () => {
     mockSupabase.auth.getUser.mockResolvedValue({
       data: { user: { id: 'user-id' } },
       error: null,
     })
 
-    const secondEq: any = vi.fn().mockResolvedValue({
-      data: null,
-      error: { message: 'Query failed' },
-    })
-
-    const firstEq: any = vi.fn().mockReturnValue({
-      eq: secondEq,
-    })
-
-    const mockMembershipQuery: any = {
-      select: vi.fn().mockReturnValue({
-        eq: firstEq,
+    const mockProjectQuery: any = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({
+        data: null,
+        error: { message: 'Query failed' },
       }),
     }
 
-    mockSupabase.from.mockReturnValue(mockMembershipQuery)
+    mockSupabase.from.mockReturnValue(mockProjectQuery)
 
-    await expect(listProjects()).rejects.toThrow('operation_failed')
+    await expect(listProjects('org-id')).rejects.toThrow('operation_failed')
   })
 
   it("throws 'auth_violation' on RLS error (42501)", async () => {
@@ -291,102 +334,45 @@ describe('listProjects', () => {
       error: null,
     })
 
-    const secondEqMembership: any = vi.fn().mockResolvedValue({
-      data: [{ org_id: 'org-id' }],
-      error: null,
-    })
-
-    const firstEqMembership: any = vi.fn().mockReturnValue({
-      eq: secondEqMembership,
-    })
-
-    const mockMembershipQuery: any = {
-      select: vi.fn().mockReturnValue({
-        eq: firstEqMembership,
-      }),
-    }
-
     const mockProjectQuery: any = {
       select: vi.fn().mockReturnThis(),
-      in: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({
         data: null,
         error: { code: '42501', message: 'RLS violation' },
       }),
     }
 
-    const projectsTable: any = {
-      select: vi.fn(() => mockProjectQuery),
-    }
+    mockSupabase.from.mockReturnValue(mockProjectQuery)
 
-    mockSupabase.from.mockImplementation((table: string) => {
-      if (table === 'memberships') {
-        return mockMembershipQuery
-      }
-      if (table === 'projects') {
-        return projectsTable
-      }
-      return {}
-    })
-
-    await expect(listProjects()).rejects.toThrow('auth_violation')
+    await expect(listProjects('org-id')).rejects.toThrow('auth_violation')
   })
 
-  it('succeeds: only projects from ACTIVE memberships returned, selects only id, name, org_id', async () => {
+  it('succeeds: only projects for org returned', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({
       data: { user: { id: 'user-id' } },
       error: null,
     })
 
-    const secondEqMembership: any = vi.fn().mockResolvedValue({
-      data: [{ org_id: 'org-1' }, { org_id: 'org-2' }],
-      error: null,
-    })
-
-    const firstEqMembership: any = vi.fn().mockReturnValue({
-      eq: secondEqMembership,
-    })
-
-    const mockMembershipQuery: any = {
-      select: vi.fn().mockReturnValue({
-        eq: firstEqMembership,
-      }),
-    }
-
     const mockProjectQuery: any = {
       select: vi.fn().mockReturnThis(),
-      in: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({
         data: [
-          { id: 'project-1', name: 'Project 1', org_id: 'org-1' },
-          { id: 'project-2', name: 'Project 2', org_id: 'org-2' },
+          { id: 'project-1', org_id: 'org-id', title: 'Project 1', status: 'PLANNING' },
+          { id: 'project-2', org_id: 'org-id', title: 'Project 2', status: 'PLANNING' },
         ],
         error: null,
       }),
     }
 
-    const projectsTable: any = {
-      select: vi.fn(() => mockProjectQuery),
-    }
+    mockSupabase.from.mockReturnValue(mockProjectQuery)
 
-    mockSupabase.from.mockImplementation((table: string) => {
-      if (table === 'memberships') {
-        return mockMembershipQuery
-      }
-      if (table === 'projects') {
-        return projectsTable
-      }
-      return {}
-    })
-
-    const result = await listProjects()
+    const result = await listProjects('org-id')
 
     expect(result).toEqual([
-      { id: 'project-1', name: 'Project 1', org_id: 'org-1' },
-      { id: 'project-2', name: 'Project 2', org_id: 'org-2' },
+      expect.objectContaining({ id: 'project-1', org_id: 'org-id' }),
+      expect.objectContaining({ id: 'project-2', org_id: 'org-id' }),
     ])
-    expect(projectsTable.select).toHaveBeenCalledWith('id, name, org_id')
-    expect(mockProjectQuery.in).toHaveBeenCalledWith('org_id', ['org-1', 'org-2'])
   })
 })
-

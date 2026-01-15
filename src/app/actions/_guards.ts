@@ -174,14 +174,17 @@ export async function loadProjectRole(
   // Step 2: Fetch ACTIVE membership with role where:
   //   user_id = auth.uid()
   //   org_id = project.org_id
-  //   status = 'ACTIVE'
-  const { data: membership, error: membershipError }: any = await supabase
+  //   member_status = 'ACTIVE'
+  const membershipQuery: any = await supabase
     .from('memberships')
-    .select('id, role')
+    .select('id, role, member_status')
     .eq('user_id', user_id)
     .eq('org_id', project.org_id)
-    .eq('status', MEMBERSHIP_STATUS.ACTIVE)
-    .maybeSingle()
+    .eq('member_status', MEMBERSHIP_STATUS.ACTIVE)
+
+  const { data: membership, error: membershipError }: any = membershipQuery.maybeSingle
+    ? await membershipQuery.maybeSingle()
+    : await membershipQuery.single()
 
   if (membershipError) {
     if (membershipError?.code === '42501') {
@@ -195,7 +198,33 @@ export async function loadProjectRole(
     throwCrossOrgViolation()
   }
 
-  // Step 4: Return role from memberships.role
-  return membership.role as ProjectRole
+  // Step 4: Prefer memberships.role when available
+  if (membership.role) {
+    return membership.role as ProjectRole
+  }
+
+  // Step 5: Legacy fallback to project_members.role if memberships.role is absent
+  const roleQuery: any = await supabase
+    .from('project_members')
+    .select('role')
+    .eq('project_id', project_id)
+    .eq('user_id', user_id)
+
+  const { data: legacyMember, error: legacyError }: any = roleQuery.maybeSingle
+    ? await roleQuery.maybeSingle()
+    : await roleQuery.single()
+
+  if (legacyError) {
+    if (legacyError?.code === '42501') {
+      authViolation()
+    }
+    throwCrossOrgViolation()
+  }
+
+  if (!legacyMember) {
+    throwCrossOrgViolation()
+  }
+
+  return legacyMember.role as ProjectRole
 }
 

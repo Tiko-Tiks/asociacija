@@ -5,6 +5,10 @@ import { requireAuth } from './_guards'
 import { authViolation, operationFailed } from '@/app/domain/errors'
 import { MEMBERSHIP_ROLE, MEMBERSHIP_STATUS } from '@/app/domain/constants'
 import { revalidatePath } from 'next/cache'
+import { 
+  validateMembershipTransitionWithReason,
+  getMembershipTransitionTemplate 
+} from '@/app/domain/state-machines/membership'
 
 /**
  * Server Action to update member status (ACTIVE or SUSPENDED).
@@ -98,7 +102,28 @@ export async function updateMemberStatus(
     return { success: false, error: 'Narys nerastas' }
   }
 
-  // Step 4: Prepare old and new values for audit log
+  // Step 4: Validate state transition
+  // GOVERNANCE COMPLIANCE: Enforce valid membership transitions
+  const transitionValidation = validateMembershipTransitionWithReason(
+    targetMembership.member_status,
+    new_status,
+    reason
+  )
+
+  if (!transitionValidation.valid) {
+    // Get suggested reason template if available
+    const template = getMembershipTransitionTemplate(
+      targetMembership.member_status,
+      new_status
+    )
+    
+    const errorMessage = transitionValidation.error + 
+      (template ? ` (Pavyzdys: ${template})` : '')
+    
+    return { success: false, error: errorMessage }
+  }
+
+  // Step 5: Prepare old and new values for audit log
   const oldValue = {
     member_status: targetMembership.member_status || null,
     status_reason: targetMembership.status_reason || null,
@@ -109,7 +134,7 @@ export async function updateMemberStatus(
     status_reason: reason.trim(),
   }
 
-  // Step 5: UPDATE memberships
+  // Step 6: UPDATE memberships
   const { data: updatedRows, error: updateError }: any = await supabase
     .from('memberships')
     .update({
@@ -128,7 +153,7 @@ export async function updateMemberStatus(
     operationFailed()
   }
 
-  // Step 6: Check if RLS blocked the update (zero rows returned)
+  // Step 7: Check if RLS blocked the update (zero rows returned)
   if (!updatedRows || updatedRows.length === 0) {
     console.error('RLS blocked member status update:', {
       org_id,
@@ -138,7 +163,7 @@ export async function updateMemberStatus(
     return { success: false, error: 'Atnaujinimas buvo blokuotas. Patikrinkite prieigą.' }
   }
 
-  // Step 7: INSERT audit_logs
+  // Step 8: INSERT audit_logs
   const { error: auditError }: any = await supabase
     .from('audit_logs')
     .insert({
@@ -157,7 +182,7 @@ export async function updateMemberStatus(
     // Continue - status update succeeded even if audit log failed
   }
 
-  // Step 8: Revalidate members page
+  // Step 9: Revalidate members page
   revalidatePath('/dashboard/members')
 
   return { success: true }

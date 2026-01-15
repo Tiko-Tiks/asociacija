@@ -136,7 +136,7 @@ export function AuditLogClient({
               data.events.map((event) => (
                 <TableRow key={event.id}>
                   <TableCell className="text-sm">
-                    {format(new Date(event.created_at), 'PPp', { locale: lt })}
+                    {format(new Date(event.created_at), 'yyyy-MM-dd HH:mm', { locale: lt })}
                   </TableCell>
                   <TableCell>
                     <Badge variant={getEventTypeBadgeVariant(event.event_type)}>

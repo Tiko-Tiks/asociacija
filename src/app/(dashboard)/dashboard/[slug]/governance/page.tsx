@@ -22,21 +22,32 @@ async function GovernanceDashboardContent({ slug }: { slug: string }) {
     notFound()
   }
 
+  // Check user role - only OWNER can access governance
+  let userRole: Awaited<ReturnType<typeof getMembershipRole>> = 'MEMBER'
+  try {
+    userRole = await getMembershipRole(selectedOrg.membership_id)
+  } catch (error) {
+    console.error('Error getting user role:', error)
+    notFound()
+  }
+
+  // Block MEMBER access - redirect to dashboard
+  if (userRole !== 'OWNER') {
+    redirect(`/dashboard/${slug}`)
+  }
+
   // Load governance data
   let meetings: Awaited<ReturnType<typeof listMeetings>> = []
   let ruleset: Awaited<ReturnType<typeof getActiveRuleset>> = null
-  let userRole: Awaited<ReturnType<typeof getMembershipRole>> = 'MEMBER'
   try {
-    [meetings, ruleset, userRole] = await Promise.all([
+    [meetings, ruleset] = await Promise.all([
       listMeetings(selectedOrg.membership_id),
       getActiveRuleset(selectedOrg.membership_id),
-      getMembershipRole(selectedOrg.membership_id),
     ])
   } catch (error) {
     console.error('Error loading governance data:', error)
     meetings = []
     ruleset = null
-    userRole = 'MEMBER'
   }
 
   const pilotMode = isPilotMode(selectedOrg.slug)

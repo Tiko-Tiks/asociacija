@@ -9,10 +9,11 @@ import { BranduolysManagement } from './branduolys-management'
 import { SystemCoreSeed } from './system-core-seed'
 import { GovernanceQuestionsManager } from './governance-questions-manager'
 import { CommunityApplicationsList } from './community-applications-list'
+import { UserOrganizationManager } from './user-organization-manager'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Activity, Building2, MessageSquare, Brain, BarChart3, Settings, LogOut, FileQuestion, FileCheck } from 'lucide-react'
+import { Activity, Building2, MessageSquare, Brain, BarChart3, Settings, LogOut, FileQuestion, FileCheck, Users } from 'lucide-react'
 import { logout } from '@/app/actions/auth'
 import { useRouter } from 'next/navigation'
 import type { GlobalStats as GlobalStatsType } from '@/app/actions/admin/global-stats'
@@ -54,15 +55,15 @@ export function SuperAdminDashboard({
             <div>
               <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
                 <Activity className="h-6 w-6 text-green-500" />
-                Platform Core
+                Platforma
               </h1>
               <p className="text-sm text-slate-400 mt-1">
-                Mission Control - Branduolys Ecosystem
+                Valdymo centras - Branduolys ekosistema
               </p>
             </div>
             <div className="flex items-center gap-4">
               <div className="text-xs text-slate-500">
-                Super Admin Mode
+                Super administratoriaus režimas
               </div>
               <Button
                 onClick={handleLogout}
@@ -84,19 +85,19 @@ export function SuperAdminDashboard({
           <TabsList className="bg-slate-900 border border-slate-800">
             <TabsTrigger value="overview" className="data-[state=active]:bg-slate-800">
               <BarChart3 className="h-4 w-4 mr-2" />
-              Overview
+              Apžvalga
             </TabsTrigger>
             <TabsTrigger value="communities" className="data-[state=active]:bg-slate-800">
               <Building2 className="h-4 w-4 mr-2" />
-              Communities
+              Bendruomenės
             </TabsTrigger>
             <TabsTrigger value="broadcast" className="data-[state=active]:bg-slate-800">
               <MessageSquare className="h-4 w-4 mr-2" />
-              Broadcast
+              Pranešimai
             </TabsTrigger>
             <TabsTrigger value="ai" className="data-[state=active]:bg-slate-800">
               <Brain className="h-4 w-4 mr-2" />
-              AI Monitor
+              AI stebėjimas
             </TabsTrigger>
             <TabsTrigger value="branduolys" className="data-[state=active]:bg-slate-800">
               <Settings className="h-4 w-4 mr-2" />
@@ -114,6 +115,10 @@ export function SuperAdminDashboard({
                   {applications.filter((a) => a.status === 'PENDING').length}
                 </Badge>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="users" className="data-[state=active]:bg-slate-800">
+              <Users className="h-4 w-4 mr-2" />
+              Vartotojai
             </TabsTrigger>
           </TabsList>
 
@@ -144,6 +149,10 @@ export function SuperAdminDashboard({
 
           <TabsContent value="applications" className="space-y-6">
             <CommunityApplicationsList initialApplications={applications} />
+          </TabsContent>
+
+          <TabsContent value="users" className="space-y-6">
+            <UserOrganizationManager />
           </TabsContent>
         </Tabs>
       </main>

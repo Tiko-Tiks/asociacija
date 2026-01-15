@@ -62,7 +62,7 @@ export function OrgReviewRequestsList({ initialRequests }: OrgReviewRequestsList
                       </div>
                       <div className="text-sm text-slate-600 space-y-1">
                         <p>
-                          Pateikta: {format(new Date(request.created_at), 'PPpp', { locale: lt })}
+                          Pateikta: {format(new Date(request.created_at), 'yyyy-MM-dd HH:mm', { locale: lt })}
                         </p>
                         {request.requester_name && (
                           <p>Pateikė: {request.requester_name} ({request.requester_email})</p>
@@ -101,7 +101,7 @@ export function OrgReviewRequestsList({ initialRequests }: OrgReviewRequestsList
                       </div>
                       <div className="text-sm text-slate-600">
                         <p>
-                          Pateikta: {format(new Date(request.created_at), 'PPpp', { locale: lt })}
+                          Pateikta: {format(new Date(request.created_at), 'yyyy-MM-dd HH:mm', { locale: lt })}
                         </p>
                       </div>
                     </div>
@@ -138,7 +138,7 @@ export function OrgReviewRequestsList({ initialRequests }: OrgReviewRequestsList
                       <div className="text-sm text-slate-600">
                         {request.decided_at && (
                           <p>
-                            Patvirtinta: {format(new Date(request.decided_at), 'PPpp', { locale: lt })}
+                            Patvirtinta: {format(new Date(request.decided_at), 'yyyy-MM-dd HH:mm', { locale: lt })}
                           </p>
                         )}
                       </div>
@@ -176,7 +176,7 @@ export function OrgReviewRequestsList({ initialRequests }: OrgReviewRequestsList
                       <div className="text-sm text-slate-600">
                         {request.decided_at && (
                           <p>
-                            Atmesta: {format(new Date(request.decided_at), 'PPpp', { locale: lt })}
+                            Atmesta: {format(new Date(request.decided_at), 'yyyy-MM-dd HH:mm', { locale: lt })}
                           </p>
                         )}
                       </div>

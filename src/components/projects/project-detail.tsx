@@ -1,3 +1,7 @@
+/**
+ * LEGACY (v17–v18): This component is read-only.
+ * Projects v19.0+ are derived from APPROVED resolutions.
+ */
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -367,7 +371,7 @@ function ContributionsList({
                   </div>
                 )}
                 <p className="text-xs text-gray-500 mt-1">
-                  {format(new Date(contrib.created_at), 'PPpp', { locale: lt })}
+                  {format(new Date(contrib.created_at), 'yyyy-MM-dd HH:mm', { locale: lt })}
                 </p>
               </div>
               <div className="flex items-center gap-2">

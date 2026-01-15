@@ -161,9 +161,9 @@ export function OrgRegistryTable({ organizations }: OrgRegistryTableProps) {
   return (
     <Card className="bg-slate-900 border-slate-800">
       <CardHeader>
-        <CardTitle className="text-slate-100">Community Registry (CRM)</CardTitle>
+        <CardTitle className="text-slate-100">Bendruomenių registras</CardTitle>
         <p className="text-sm text-slate-400 mt-1">
-          Manage all organizations in the platform
+          Valdyti visas platformos organizacijas
         </p>
       </CardHeader>
       <CardContent>
@@ -171,19 +171,19 @@ export function OrgRegistryTable({ organizations }: OrgRegistryTableProps) {
           <Table>
             <TableHeader>
               <TableRow className="border-slate-800 hover:bg-slate-900/50">
-                <TableHead className="text-slate-400">Title</TableHead>
-                <TableHead className="text-slate-400">Created</TableHead>
-                <TableHead className="text-slate-400">Members</TableHead>
-                <TableHead className="text-slate-400">Status</TableHead>
-                <TableHead className="text-slate-400">Owner</TableHead>
-                <TableHead className="text-slate-400 text-right">Actions</TableHead>
+                <TableHead className="text-slate-400">Pavadinimas</TableHead>
+                <TableHead className="text-slate-400">Sukurta</TableHead>
+                <TableHead className="text-slate-400">Nariai</TableHead>
+                <TableHead className="text-slate-400">Statusas</TableHead>
+                <TableHead className="text-slate-400">Savininkas</TableHead>
+                <TableHead className="text-slate-400 text-right">Veiksmai</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {organizations.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-slate-500 py-8">
-                    No organizations found
+                    Organizacijų nerasta
                   </TableCell>
                 </TableRow>
               ) : (
@@ -211,7 +211,7 @@ export function OrgRegistryTable({ organizations }: OrgRegistryTableProps) {
                       <div className="flex items-center gap-2">
                         <User className="h-3 w-3" />
                         <div className="text-xs">
-                          {org.ownerEmail || 'No owner'}
+                          {org.ownerEmail || 'Nėra savininko'}
                         </div>
                       </div>
                     </TableCell>
@@ -243,7 +243,7 @@ export function OrgRegistryTable({ organizations }: OrgRegistryTableProps) {
                             className="text-slate-100 hover:bg-slate-800"
                           >
                             <Eye className="h-4 w-4 mr-2" />
-                            Ghost Login
+                            Peržiūrėti kaip narys
                           </DropdownMenuItem>
                           {org.status !== 'SUSPENDED' && (
                             <DropdownMenuItem
@@ -258,6 +258,7 @@ export function OrgRegistryTable({ organizations }: OrgRegistryTableProps) {
                           {(org.status === 'PENDING_REVIEW' ||
                             org.status === 'PENDING_ACTIVATION' ||
                             org.status === 'PENDING' ||
+                            org.status === 'ONBOARDING' ||
                             !org.status) && (
                             <DropdownMenuItem
                               onClick={() => handleActivate(org.id, org.name)}

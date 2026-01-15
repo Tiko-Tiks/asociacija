@@ -5,15 +5,17 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle, X, CheckCircle2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { getOrgCompliance, validateOrgCompliance, type ComplianceValidation } from '@/app/actions/governance-compliance'
+import { getOrgCompliance, validateOrgCompliance } from '@/app/actions/governance-compliance'
+import type { ComplianceValidation } from '@/app/actions/governance-compliance-types'
 import { useToast } from '@/components/ui/use-toast'
 
 interface ComplianceBannerProps {
   orgId: string
   orgSlug: string
+  userRole?: string // User's role in the organization
 }
 
-export function ComplianceBanner({ orgId, orgSlug }: ComplianceBannerProps) {
+export function ComplianceBanner({ orgId, orgSlug, userRole }: ComplianceBannerProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [compliance, setCompliance] = useState<{
@@ -22,9 +24,32 @@ export function ComplianceBanner({ orgId, orgSlug }: ComplianceBannerProps) {
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [dismissed, setDismissed] = useState(false)
+  
+  // Only show compliance banner to OWNER (Chairman)
+  // Regular members should not see governance compliance issues
+  if (userRole !== 'OWNER') {
+    return null
+  }
 
   useEffect(() => {
     loadCompliance()
+    
+    // Reload on window focus (user returns to tab)
+    const handleFocus = () => {
+      loadCompliance()
+    }
+    
+    // Reload periodically (every 30 seconds) to catch updates
+    const interval = setInterval(() => {
+      loadCompliance()
+    }, 30000)
+    
+    window.addEventListener('focus', handleFocus)
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      clearInterval(interval)
+    }
   }, [orgId])
 
   const loadCompliance = async () => {

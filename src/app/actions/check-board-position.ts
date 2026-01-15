@@ -17,25 +17,38 @@ export async function checkBoardPosition(orgId: string): Promise<boolean> {
   const supabase = await createClient()
   const user = await requireAuth(supabase)
 
-  // Query for BOARD position
-  const { data: positions, error } = await supabase
-    .from('positions')
-    .select('id')
-    .eq('org_id', orgId)
-    .eq('user_id', user.id)
-    .eq('is_active', true)
-    .ilike('title', '%BOARD%')
-    .limit(1)
+  try {
+    // Query for BOARD position
+    const { data: positions, error } = await supabase
+      .from('positions')
+      .select('id')
+      .eq('org_id', orgId)
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .ilike('title', '%BOARD%')
+      .limit(1)
 
-  if (error) {
-    if (error.code === '42501') {
-      authViolation()
+    if (error) {
+      if (error.code === '42501') {
+        authViolation()
+      }
+      // If positions table doesn't exist, RLS blocks, or network error, return false
+      // Don't log network errors (500 from Cloudflare) as they're not actionable
+      if (error.code !== 'PGRST301' && !error.message?.includes('500')) {
+        console.error('Error checking board position:', error.message || error.code)
+      }
+      return false
     }
-    // If positions table doesn't exist or RLS blocks, return false
-    console.error('Error checking board position:', error)
+
+    return (positions?.length || 0) > 0
+  } catch (error: any) {
+    // Catch any unexpected errors (network, parsing, etc.)
+    // If it's a network/Cloudflare error, silently return false
+    if (error?.message?.includes('500') || error?.message?.includes('Internal server error')) {
+      return false
+    }
+    console.error('Unexpected error checking board position:', error)
     return false
   }
-
-  return (positions?.length || 0) > 0
 }
 

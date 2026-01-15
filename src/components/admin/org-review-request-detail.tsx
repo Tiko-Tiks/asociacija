@@ -198,7 +198,7 @@ export function OrgReviewRequestDetail({
               <div>
                 <Label className="text-sm font-medium text-slate-700">Pateikta</Label>
                 <p className="text-sm text-slate-600">
-                  {format(new Date(request.created_at), 'PPpp', { locale: lt })}
+                  {format(new Date(request.created_at), 'yyyy-MM-dd HH:mm', { locale: lt })}
                 </p>
               </div>
 
@@ -233,7 +233,7 @@ export function OrgReviewRequestDetail({
                     {request.status === 'APPROVED' ? 'Patvirtinta' : 'Nuspręsta'}
                   </Label>
                   <p className="text-sm text-slate-600">
-                    {format(new Date(request.decided_at), 'PPpp', { locale: lt })}
+                    {format(new Date(request.decided_at), 'yyyy-MM-dd HH:mm', { locale: lt })}
                   </p>
                 </div>
               )}

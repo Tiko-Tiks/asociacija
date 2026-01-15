@@ -21,7 +21,7 @@ export function HeroSection({ title, subtitle }: HeroSectionProps) {
 
   return (
     <section className="bg-gradient-to-b from-slate-50 to-white py-16 md:py-24">
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center text-center space-y-8 max-w-4xl mx-auto">
           {/* Logo */}
           <div className="flex flex-col items-center space-y-4">

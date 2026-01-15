@@ -5,8 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Loader2, Save, CheckCircle, XCircle, MinusCircle } from 'lucide-react'
+import { Loader2, Save } from 'lucide-react'
 import { setVoteLiveTotals, getVoteLiveTotals, getVoteTallies, type SetLiveTotalsResult } from '@/app/actions/live-voting'
 import { useToast } from '@/components/ui/use-toast'
 
@@ -108,7 +107,7 @@ export function LiveVotingTotals({ voteId, resolutionTitle, canEdit }: LiveVotin
       } else {
         const errorMessage =
           result.reason === 'INVALID_TOTALS'
-            ? 'Neteisingi skaičiai (UŽ negali būti neigiamas)'
+            ? 'Neteisingi skaičiai (Už negali būti neigiamas)'
             : result.reason === 'VOTE_NOT_FOUND'
               ? 'Balsavimas nerastas'
               : 'Nepavyko išsaugoti'
@@ -165,16 +164,16 @@ export function LiveVotingTotals({ voteId, resolutionTitle, canEdit }: LiveVotin
     <Card>
       <CardHeader>
         <CardTitle className="text-lg">{resolutionTitle}</CardTitle>
-        <CardDescription>Gyvų balsavimo rezultatai</CardDescription>
+        <CardDescription>Gyvo balsavimo rezultatai</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Remote subtotals */}
         {remoteTotal > 0 && (
           <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-            <p className="text-sm font-medium text-blue-900 mb-2">Nuotolinių balsavimų rezultatai:</p>
+            <p className="text-sm font-medium text-blue-900 mb-2">Nuotolinio balsavimo rezultatai:</p>
             <div className="grid grid-cols-4 gap-2 text-sm">
               <div>
-                <span className="text-gray-600">UŽ:</span>
+                <span className="text-gray-600">Už:</span>
                 <span className="ml-2 font-semibold">{remoteFor}</span>
               </div>
               <div>
@@ -196,7 +195,7 @@ export function LiveVotingTotals({ voteId, resolutionTitle, canEdit }: LiveVotin
         {/* Live totals input */}
         <div className="p-3 bg-gray-50 rounded-lg border">
           <p className="text-sm font-medium text-gray-900 mb-3">
-            Gyvai dalyvaujančių: <span className="font-bold">{livePresentCount}</span>
+            Gyvai dalyvaujantys: <span className="font-bold">{livePresentCount}</span>
           </p>
 
           <div className="grid grid-cols-2 gap-4">
@@ -241,7 +240,7 @@ export function LiveVotingTotals({ voteId, resolutionTitle, canEdit }: LiveVotin
           <div className="mt-4 pt-4 border-t">
             <div className="grid grid-cols-4 gap-2 text-sm">
               <div>
-                <span className="text-gray-600">Gyvai UŽ:</span>
+                <span className="text-gray-600">Gyvai Už:</span>
                 <span
                   className={`ml-2 font-semibold ${
                     liveForCount < 0 ? 'text-red-600' : 'text-green-600'
@@ -271,7 +270,7 @@ export function LiveVotingTotals({ voteId, resolutionTitle, canEdit }: LiveVotin
 
           {liveForCount < 0 && (
             <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-              Klaida: UŽ skaičius negali būti neigiamas. Patikrinkite PRIEŠ ir SUSILAIKĖ skaičius.
+              Klaida: Už skaičius negali būti neigiamas. Patikrinkite PRIEŠ ir SUSILAIKĖ skaičius.
             </div>
           )}
 
@@ -301,7 +300,7 @@ export function LiveVotingTotals({ voteId, resolutionTitle, canEdit }: LiveVotin
           <p className="text-sm font-medium text-green-900 mb-2">Galutiniai rezultatai:</p>
           <div className="grid grid-cols-4 gap-2 text-sm">
             <div>
-              <span className="text-gray-600">UŽ:</span>
+              <span className="text-gray-600">Už:</span>
               <span className="ml-2 font-semibold text-green-600">{finalFor}</span>
             </div>
             <div>

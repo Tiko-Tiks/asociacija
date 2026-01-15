@@ -154,9 +154,10 @@ export default async function Home() {
 
       {/* Footer */}
       <footer className="border-t bg-slate-50 py-12 mt-auto">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div>
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            {/* About */}
+            <div className="md:col-span-2">
               <div className="flex items-center gap-3 mb-4">
                 <Image
                   src="/logo.svg"
@@ -167,36 +168,56 @@ export default async function Home() {
                 />
                 <h3 className="font-bold text-slate-900">Bendruomenių Branduolys</h3>
               </div>
-              <p className="text-sm text-slate-600">
-                Lietuvos bendruomenių valdymo platforma
+              <p className="text-sm text-slate-600 mb-4 max-w-md">
+                Lietuvos bendruomenių valdymo platforma. Skirta organizuoti, valdyti ir plėtoti bendruomenių veiklą.
               </p>
             </div>
+            
+            {/* Links */}
             <div>
               <h4 className="font-semibold text-slate-900 mb-4">Nuorodos</h4>
               <ul className="space-y-2 text-sm">
                 {!isAuthenticated && (
-                  <>
-                    <li>
-                      <Link href="/login" className="text-slate-600 hover:text-slate-900">
-                        Prisijungti
-                      </Link>
-                    </li>
-                    <li>
-                      <Link href="/register-community" className="text-slate-600 hover:text-slate-900">
-                        Registruoti bendruomenę
-                      </Link>
-                    </li>
-                  </>
+                  <li>
+                    <Link href="/login" className="text-slate-600 hover:text-slate-900 transition-colors">
+                      Prisijungti
+                    </Link>
+                  </li>
+                )}
+                <li>
+                  <Link href="/#registry" className="text-slate-600 hover:text-slate-900 transition-colors">
+                    Bendruomenių registras
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/#legal" className="text-slate-600 hover:text-slate-900 transition-colors">
+                    Teisinis pamatas
+                  </Link>
+                </li>
+                {isAuthenticated && dashboardUrl && (
+                  <li>
+                    <Link href={dashboardUrl} className="text-slate-600 hover:text-slate-900 transition-colors">
+                      Valdymo pultas
+                    </Link>
+                  </li>
                 )}
               </ul>
             </div>
+            
+            {/* Contact */}
             <div>
               <h4 className="font-semibold text-slate-900 mb-4">Kontaktai</h4>
-              <p className="text-sm text-slate-600">
-                asociacija.net
-              </p>
+              <ul className="space-y-2 text-sm text-slate-600">
+                <li>
+                  <a href="https://asociacija.net" target="_blank" rel="noopener noreferrer" className="hover:text-slate-900 transition-colors">
+                    asociacija.net
+                  </a>
+                </li>
+              </ul>
             </div>
           </div>
+          
+          {/* Copyright */}
           <div className="mt-8 pt-8 border-t text-center text-sm text-slate-600">
             <p>© {new Date().getFullYear()} Lietuvos Bendruomenių Branduolys. Visos teisės saugomos.</p>
           </div>

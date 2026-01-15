@@ -56,64 +56,50 @@ export async function login(formData: FormData, redirectTo?: string) {
     throw new Error('Prisijungti nepavyko. Bandykite dar kartą.')
   }
 
-  // Determine redirect destination
-  // Priority: redirectTo parameter > User's organization dashboard > Admin panel > Landing page
-  if (redirectTo) {
-    // Decode and validate redirect URL
-    const decodedRedirect = decodeURIComponent(redirectTo)
-    console.log('Login: redirectTo parameter provided:', decodedRedirect)
+  // Sync profile data: Copy full_name from user_metadata if profiles.full_name is empty
+  // This fixes users who registered before the profile sync was implemented
+  try {
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const adminSupabase = createAdminClient()
     
-    // If redirect is to a dashboard, verify user has membership in that org
-    const dashboardMatch = decodedRedirect.match(/^\/dashboard\/([^/]+)/)
-    if (dashboardMatch) {
-      const targetSlug = dashboardMatch[1]
-      console.log('Login: Redirecting to dashboard, checking membership for slug:', targetSlug)
-      
-      // Check if user has membership in this org
-      try {
-        const { getUserOrgs } = await import('@/app/actions/organizations')
-        const orgs = await getUserOrgs()
-        const hasMembership = orgs.some((org: any) => org.slug === targetSlug)
-        
-        if (hasMembership) {
-          console.log('Login: User has membership, redirecting to:', decodedRedirect)
-          redirect(decodedRedirect)
-        } else {
-          console.log('Login: User does not have membership in', targetSlug, 'redirecting to first org instead')
-          // User doesn't have membership in target org, redirect to first org instead
-          if (orgs.length > 0 && orgs[0]?.slug) {
-            redirect(`/dashboard/${orgs[0].slug}`)
-          }
-        }
-      } catch (error) {
-        console.error('Login: Error checking membership, using redirect anyway:', error)
-        // On error, still try to redirect (might work if user has access)
-        redirect(decodedRedirect)
-      }
-    } else {
-      // Not a dashboard redirect, use as-is
-      console.log('Login: Non-dashboard redirect, using as-is:', decodedRedirect)
-      redirect(decodedRedirect)
+    // Check if profiles.full_name is empty
+    const { data: profile } = await adminSupabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', data.user.id)
+      .maybeSingle()
+    
+    const userMetaFullName = data.user.user_metadata?.full_name
+    const needsFullNameSync = !profile?.full_name && userMetaFullName
+    const needsEmailSync = !profile?.email && data.user.email
+    
+    if (needsFullNameSync || needsEmailSync) {
+      await adminSupabase
+        .from('profiles')
+        .update({
+          ...(needsFullNameSync ? { full_name: userMetaFullName } : {}),
+          ...(needsEmailSync ? { email: data.user.email } : {}),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', data.user.id)
     }
+  } catch (syncError) {
+    // Non-blocking - log but don't fail login
+    console.error('Error syncing profile data on login:', syncError)
   }
 
-  // Determine redirect destination based on user's membership state
-  // Priority: User's organization dashboard > Admin panel > Landing page
+  // Determine redirect destination
+  // Priority: User's organization dashboard > Admin panel > redirectTo parameter > Landing page
   try {
     // Check if user has active memberships
     const { getUserOrgs } = await import('@/app/actions/organizations')
     const orgs = await getUserOrgs()
     
-    console.log('Login: Checking user orgs for redirect:', { orgCount: orgs.length })
-    
     if (orgs.length > 0) {
       // User has organizations - redirect to first organization's dashboard
       const firstOrg = orgs[0]
       if (firstOrg?.slug) {
-        console.log('Login: Redirecting to first org dashboard:', firstOrg.slug)
         redirect(`/dashboard/${firstOrg.slug}`)
-      } else {
-        console.log('Login: First org has no slug, trying next org or admin')
       }
     }
 
@@ -121,17 +107,138 @@ export async function login(formData: FormData, redirectTo?: string) {
     const { isPlatformAdmin } = await import('@/app/actions/admin')
     const isAdmin = await isPlatformAdmin()
     if (isAdmin) {
-      console.log('Login: User is platform admin, redirecting to admin panel')
       redirect('/admin')
     }
   } catch (error) {
-    // If error determining redirect, fall back to landing page
+    // If error determining redirect, fall back to redirectTo or landing page
     console.error('Login: Error determining redirect destination:', error)
   }
   
-  // Fallback: Redirect to landing page
-  console.log('Login: No orgs or admin, redirecting to landing page')
+  // Fallback: Use redirectTo parameter if provided, otherwise landing page
+  if (redirectTo) {
+    redirect(decodeURIComponent(redirectTo))
+  }
+  
   redirect('/')
+}
+
+/**
+ * Server Action to sign up a new user with email and password.
+ * 
+ * Follows .cursorrules v17.2-OSMIUM-PLATINUM:
+ * - Uses anonymous client for signup (no authentication required)
+ * - Handles registration errors gracefully
+ * - Returns success status (does not redirect)
+ * 
+ * @param formData - Form data containing email, password, and optional full_name
+ * @returns Object with success status and optional error message
+ */
+export async function signup(formData: FormData) {
+  const email = formData.get('email')?.toString()
+  const password = formData.get('password')?.toString()
+  const fullName = formData.get('full_name')?.toString()
+
+  if (!email || !password) {
+    return {
+      success: false,
+      error: 'Prašome įvesti el. paštą ir slaptažodį',
+    }
+  }
+
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email)) {
+    return {
+      success: false,
+      error: 'Neteisingas el. pašto adreso formatas',
+    }
+  }
+
+  // Validate password length
+  if (password.length < 6) {
+    return {
+      success: false,
+      error: 'Slaptažodis turi būti bent 6 simbolių ilgio',
+    }
+  }
+
+  // Use anonymous client for signup (no authentication required)
+  const { createAnonClient } = await import('@/lib/supabase/server')
+  const supabase = createAnonClient()
+
+  // Sign up with email and password
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: fullName || null,
+      },
+    },
+  })
+
+  if (error) {
+    // Handle registration errors
+    if (error.message.includes('already registered') || error.message.includes('already exists')) {
+      return {
+        success: false,
+        error: 'Šis el. paštas jau užregistruotas. Bandykite prisijungti.',
+      }
+    }
+    if (error.message.includes('password')) {
+      return {
+        success: false,
+        error: 'Slaptažodis per silpnas. Naudokite bent 6 simbolius.',
+      }
+    }
+    if (error.message.includes('email')) {
+      return {
+        success: false,
+        error: 'Neteisingas el. pašto adreso formatas',
+      }
+    }
+    // Fallback for other errors
+    return {
+      success: false,
+      error: 'Registracija nepavyko. Bandykite dar kartą.',
+    }
+  }
+
+  if (!data.user) {
+    return {
+      success: false,
+      error: 'Registracija nepavyko. Bandykite dar kartą.',
+    }
+  }
+
+  // Update profiles table with full_name and email
+  // NOTE: handle_new_user trigger only creates profile with id, doesn't copy full_name
+  // We need to update it here to ensure profile data is complete
+  if (fullName || email) {
+    try {
+      const { createAdminClient } = await import('@/lib/supabase/admin')
+      const adminSupabase = createAdminClient()
+      
+      await adminSupabase
+        .from('profiles')
+        .update({
+          full_name: fullName || null,
+          email: email.toLowerCase().trim(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', data.user.id)
+    } catch (profileError) {
+      // Non-blocking - log but don't fail registration
+      console.error('Error updating profile after signup:', profileError)
+    }
+  }
+
+  // Registration successful
+  // Note: User may need to confirm email depending on Supabase settings
+  return {
+    success: true,
+    message: 'Registracija sėkminga! Jei reikia, patikrinkite el. paštą patvirtinimo nuorodai.',
+  }
 }
 
 /**
@@ -214,29 +321,9 @@ export async function forgotPassword(formData: FormData) {
   const supabase = createAnonClient()
 
   // Send password reset email
-  // Determine app URL: priority: NEXT_PUBLIC_APP_URL > VERCEL_URL > default production URL
-  let appUrl = 'https://asociacija.net' // Default production URL
-  
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    // Use explicitly set app URL (production)
-    appUrl = process.env.NEXT_PUBLIC_APP_URL
-    // Ensure it doesn't end with /
-    appUrl = appUrl.replace(/\/$/, '')
-  } else if (process.env.VERCEL_URL) {
-    // Use Vercel URL (preview/production)
-    const vercelUrl = process.env.VERCEL_URL
-    // VERCEL_URL might already include https:// or might not
-    if (vercelUrl.startsWith('http://') || vercelUrl.startsWith('https://')) {
-      appUrl = vercelUrl
-    } else {
-      appUrl = `https://${vercelUrl}`
-    }
-  }
-  
-  // In development, use localhost only if explicitly set
-  if (process.env.NODE_ENV === 'development' && !process.env.NEXT_PUBLIC_APP_URL && !process.env.VERCEL_URL) {
-    appUrl = 'http://localhost:3000'
-  }
+  // Use getAppUrl helper for consistent URL handling
+  const { getAppUrl } = await import('@/lib/app-url')
+  const appUrl = getAppUrl()
   
   console.log('Password reset redirect URL:', `${appUrl}/reset-password`)
   

@@ -17,10 +17,11 @@ import { getRequiredConsents } from './consents'
 export interface OnboardingStatus {
   orgId: string
   orgName: string
+  membershipId: string
   currentStep: 1 | 2 | 3 | null // null = already active, no onboarding needed
   step1Complete: boolean // Governance submitted
   step2Complete: boolean // All consents accepted
-  step3Complete: boolean // CORE approved (org is ACTIVE)
+  step3Complete: boolean // Platformos approved (org is ACTIVE)
   activationStatus: {
     status: string | null
     hasActiveRuleset: boolean
@@ -106,6 +107,7 @@ export async function getOnboardingStatus(): Promise<OnboardingStatus | null> {
     return {
       orgId,
       orgName,
+      membershipId: ownerMembership.id,
       currentStep: null,
       step1Complete: true,
       step2Complete: true,
@@ -127,7 +129,7 @@ export async function getOnboardingStatus(): Promise<OnboardingStatus | null> {
   // Step 4: Check if governance answers submitted (step 1)
   const { data: governanceConfig, error: governanceError }: any = await supabase
     .from('governance_configs')
-    .select('id')
+    .select('id, answers')
     .eq('org_id', orgId)
     .maybeSingle()
 
@@ -135,7 +137,44 @@ export async function getOnboardingStatus(): Promise<OnboardingStatus | null> {
     console.error('Error checking governance config:', governanceError)
   }
 
-  const step1Complete = !!governanceConfig
+  // Check if board members are required and assigned
+  let boardMembersRequired = false
+  let boardMembersAssigned = true
+  
+  if (governanceConfig?.answers) {
+    const answers = governanceConfig.answers
+    const governingBodyType = answers.governing_body_type
+    const boardMemberCount = answers.board_member_count
+    
+    // Only require board members if organization has a governing body (not 'nera')
+    if (governingBodyType && governingBodyType !== 'nera' && boardMemberCount && boardMemberCount > 0) {
+      boardMembersRequired = true
+      
+      // Check if board members have been assigned
+      const { data: boardAssignments } = await supabase
+        .from('board_member_assignments')
+        .select('id')
+        .eq('org_id', orgId)
+        .eq('is_active', true)
+      
+      // If table doesn't exist, check positions table
+      if (!boardAssignments) {
+        const { data: positions } = await supabase
+          .from('positions')
+          .select('id')
+          .eq('org_id', orgId)
+          .eq('is_active', true)
+          .ilike('title', '%BOARD%')
+        
+        boardMembersAssigned = (positions?.length || 0) >= boardMemberCount
+      } else {
+        boardMembersAssigned = (boardAssignments?.length || 0) >= boardMemberCount
+      }
+    }
+  }
+
+  // Step 1 is complete only if governance is submitted AND board members are assigned (if required)
+  const step1Complete = !!governanceConfig && (!boardMembersRequired || boardMembersAssigned)
   
   // DEBUG: Log step 1 status
   console.log('ONBOARDING_STEP1_DEBUG:', {
@@ -143,6 +182,8 @@ export async function getOnboardingStatus(): Promise<OnboardingStatus | null> {
     step1Complete,
     governanceConfigId: governanceConfig?.id,
     governanceError: governanceError?.code,
+    boardMembersRequired,
+    boardMembersAssigned,
   })
 
   // Step 5: Check consents (step 2)
@@ -175,7 +216,7 @@ export async function getOnboardingStatus(): Promise<OnboardingStatus | null> {
     currentStep = 2
   } else if (hasProposedRuleset && !activationStatus.hasActiveRuleset) {
     // Step 1 and 2 complete, PROPOSED ruleset exists, but no ACTIVE ruleset yet
-    // This means waiting for CORE approval
+    // This means waiting for Platformos approval
     currentStep = 3
   } else if (activationStatus.status === 'ACTIVE' && !activationStatus.hasActiveRuleset) {
     // Org is ACTIVE but no ruleset - this is an inconsistent state
@@ -206,6 +247,7 @@ export async function getOnboardingStatus(): Promise<OnboardingStatus | null> {
   return {
     orgId,
     orgName,
+    membershipId: ownerMembership.id,
     currentStep,
     step1Complete,
     step2Complete,

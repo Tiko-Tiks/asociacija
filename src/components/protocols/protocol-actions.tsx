@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { FileText, Download, AlertCircle } from 'lucide-react'
+import { FileText, Download, AlertCircle, Upload, ArrowLeft } from 'lucide-react'
+import Link from 'next/link'
+import { formatDateLT } from '@/lib/utils'
 import {
   finalizeMeetingProtocol,
   getProtocolPdfSignedUrl,
@@ -17,6 +19,7 @@ import { ProtocolPreview } from './protocol-preview'
 interface ProtocolActionsProps {
   meetingId: string
   orgId: string
+  orgSlug?: string
   isOwner: boolean
   isBoard: boolean
 }
@@ -24,6 +27,7 @@ interface ProtocolActionsProps {
 export function ProtocolActions({
   meetingId,
   orgId,
+  orgSlug,
   isOwner,
   isBoard,
 }: ProtocolActionsProps) {
@@ -106,11 +110,32 @@ export function ProtocolActions({
     }
   }
 
+  const [downloading, setDownloading] = useState<string | null>(null)
+
   const handleDownloadPdf = async (protocol: MeetingProtocol) => {
+    setDownloading(protocol.id)
     try {
       const result = await getProtocolPdfSignedUrl(protocol.id)
       if (result.success && result.url) {
-        window.open(result.url, '_blank')
+        // Fetch as blob to force download (cross-origin workaround)
+        const response = await fetch(result.url)
+        const blob = await response.blob()
+        const blobUrl = window.URL.createObjectURL(blob)
+        
+        const link = document.createElement('a')
+        link.href = blobUrl
+        link.download = `protokolas_${protocol.protocol_number}.pdf`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        
+        // Cleanup blob URL
+        window.URL.revokeObjectURL(blobUrl)
+        
+        toast({
+          title: 'PDF atsisiųstas',
+          description: `Protokolas ${protocol.protocol_number} atsisiųstas sėkmingai`,
+        })
       } else {
         toast({
           title: 'Klaida',
@@ -125,6 +150,8 @@ export function ProtocolActions({
         description: 'Įvyko klaida atsisiunčiant PDF',
         variant: 'destructive',
       })
+    } finally {
+      setDownloading(null)
     }
   }
 
@@ -158,21 +185,22 @@ export function ProtocolActions({
                   Protokolas {protocol.protocol_number} (v{protocol.version})
                 </p>
                 <p className="text-sm text-gray-500">
-                  Finalizuotas: {new Date(protocol.finalized_at || '').toLocaleDateString('lt-LT')}
+                  Finalizuotas: {formatDateLT(protocol.finalized_at, 'medium')}
                 </p>
               </div>
-              {protocol.pdf_path ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDownloadPdf(protocol)}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Atsisiųsti PDF
-                </Button>
-              ) : (
-                <span className="text-sm text-gray-500">PDF dar negeneruotas</span>
-              )}
+                {protocol.pdf_path ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDownloadPdf(protocol)}
+                    disabled={downloading === protocol.id}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    {downloading === protocol.id ? 'Siunčiama...' : 'Atsisiųsti PDF'}
+                  </Button>
+                ) : (
+                  <span className="text-sm text-gray-500">PDF dar negeneruotas</span>
+                )}
             </div>
           ))}
         </div>
@@ -218,7 +246,7 @@ export function ProtocolActions({
                 <p className="text-sm text-gray-500">
                   Status: {protocol.status === 'FINAL' ? 'Finalizuotas' : 'Juodraštis'}
                   {protocol.finalized_at &&
-                    ` • ${new Date(protocol.finalized_at).toLocaleDateString('lt-LT')}`}
+                    ` • ${formatDateLT(protocol.finalized_at, 'medium')}`}
                 </p>
               </div>
               <div className="flex gap-2">
@@ -227,9 +255,10 @@ export function ProtocolActions({
                     variant="outline"
                     size="sm"
                     onClick={() => handleDownloadPdf(protocol)}
+                    disabled={downloading === protocol.id}
                   >
                     <Download className="h-4 w-4 mr-2" />
-                    Atsisiųsti PDF
+                    {downloading === protocol.id ? 'Siunčiama...' : 'Atsisiųsti PDF'}
                   </Button>
                 ) : (
                   protocol.status === 'FINAL' && (isOwner || isBoard) && (
@@ -265,6 +294,38 @@ export function ProtocolActions({
             balsavimai uždaryti.
           </AlertDescription>
         </Alert>
+      )}
+
+      {/* Upload signed protocol section - shows after protocol is finalized */}
+      {protocols.some((p) => p.status === 'FINAL') && orgSlug && (
+        <div className="mt-6 p-4 border-2 border-dashed border-gray-300 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-medium">📤 Įkelti pasirašytą protokolą</h4>
+              <p className="text-sm text-gray-500 mt-1">
+                Įkelkite skenuotą pasirašyto protokolo kopiją
+              </p>
+            </div>
+            <Button asChild variant="outline">
+              <Link href={`/dashboard/${orgSlug}/meetings/${meetingId}/protocol/upload`}>
+                <Upload className="h-4 w-4 mr-2" />
+                Įkelti
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Back to chair dashboard */}
+      {orgSlug && (
+        <div className="mt-4 pt-4 border-t">
+          <Button asChild variant="ghost" size="sm">
+            <Link href={`/dashboard/${orgSlug}/chair`}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Grįžti į pirmininko pultą
+            </Link>
+          </Button>
+        </div>
       )}
     </div>
   )

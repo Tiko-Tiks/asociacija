@@ -1,13 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Loader2 } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Loader2, FileText, AlertTriangle } from 'lucide-react'
 import { createIdea } from '@/app/actions/ideas'
 import { useToast } from '@/components/ui/use-toast'
 
@@ -16,6 +23,15 @@ interface CreateIdeaModalProps {
   onClose: () => void
 }
 
+/**
+ * Create Idea Modal
+ * 
+ * v19.0 COMPLIANT PRE-GOVERNANCE:
+ * - Creates idea in draft phase
+ * - Uses v19 columns: title, summary, details
+ * - Phase stored in metadata.fact.phase
+ * - Ideas have no legal or procedural power
+ */
 export function CreateIdeaModal({ orgId, onClose }: CreateIdeaModalProps) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
@@ -23,7 +39,6 @@ export function CreateIdeaModal({ orgId, onClose }: CreateIdeaModalProps) {
     title: '',
     summary: '',
     details: '',
-    public_visible: true,
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,27 +53,35 @@ export function CreateIdeaModal({ orgId, onClose }: CreateIdeaModalProps) {
       return
     }
 
-    setLoading(true)
+    if (!formData.summary.trim()) {
+      toast({
+        title: 'Klaida',
+        description: 'Trumpas aprašymas yra privalomas',
+        variant: 'destructive',
+      })
+      return
+    }
 
+    setLoading(true)
     try {
+      // v19.0 COMPLIANT: createIdea(orgId, title, summary, details)
       const result = await createIdea(
         orgId,
-        formData.title,
-        formData.summary || null,
-        formData.details || null,
-        formData.public_visible
+        formData.title.trim(),
+        formData.summary.trim(),
+        formData.details.trim() || undefined
       )
 
-      if (result.ok) {
+      if (result.success) {
         toast({
-          title: 'Sėkmė',
-          description: 'Idėja sėkmingai sukurta',
+          title: 'Idėja sukurta',
+          description: 'Idėja sukurta kaip juodraštis. Tai yra diskusijų objektas be teisinės galios.',
         })
         onClose()
       } else {
         toast({
           title: 'Klaida',
-          description: result.reason === 'NOT_A_MEMBER' ? 'Neturite teisių' : 'Nepavyko sukurti idėjos',
+          description: result.error || 'Nepavyko sukurti idėjos',
           variant: 'destructive',
         })
       }
@@ -66,7 +89,7 @@ export function CreateIdeaModal({ orgId, onClose }: CreateIdeaModalProps) {
       console.error('Error creating idea:', error)
       toast({
         title: 'Klaida',
-        description: 'Įvyko klaida',
+        description: 'Įvyko klaida kuriant idėją',
         variant: 'destructive',
       })
     } finally {
@@ -75,86 +98,85 @@ export function CreateIdeaModal({ orgId, onClose }: CreateIdeaModalProps) {
   }
 
   return (
-    <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+    <Dialog open onOpenChange={() => onClose()}>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Sukurti idėją</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-gray-600" />
+            Sukurti idėją
+          </DialogTitle>
           <DialogDescription>
-            Pateikite idėją, kurią galės balsuoti bendruomenės nariai
+            Sukurkite naują idėją diskusijai. Idėja bus sukurta kaip juodraštis.
           </DialogDescription>
         </DialogHeader>
 
+        {/* PRE-GOVERNANCE Disclaimer */}
+        <Alert className="border-gray-200 bg-gray-50">
+          <AlertTriangle className="h-4 w-4 text-gray-600" />
+          <AlertDescription className="text-gray-600 text-sm">
+            Idėjos yra diskusijų objektai be teisinės ar procedūrinės galios. 
+            Sprendimai priimami tik Valdymo modulyje.
+          </AlertDescription>
+        </Alert>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="title">
-              Pavadinimas <span className="text-red-500">*</span>
-            </Label>
+            <Label htmlFor="title">Pavadinimas *</Label>
             <Input
               id="title"
+              type="text"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="Idėjos pavadinimas"
-              required
+              placeholder="Įveskite idėjos pavadinimą"
               disabled={loading}
+              maxLength={200}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="summary">Trumpas aprašymas</Label>
+            <Label htmlFor="summary">Trumpas aprašymas *</Label>
             <Textarea
               id="summary"
               value={formData.summary}
               onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
-              placeholder="Trumpas aprašymas (rodomas sąraše)"
-              rows={3}
+              placeholder="Trumpai aprašykite idėją (bus rodoma sąraše)..."
               disabled={loading}
+              rows={3}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="details">Išsamus aprašymas</Label>
+            <Label htmlFor="details">Išsamus aprašymas (neprivaloma)</Label>
             <Textarea
               id="details"
               value={formData.details}
               onChange={(e) => setFormData({ ...formData, details: e.target.value })}
-              placeholder="Išsamus aprašymas (rodomas detaliame puslapyje)"
-              rows={6}
+              placeholder="Išsamiai aprašykite idėją, pateikite argumentus..."
               disabled={loading}
+              rows={5}
             />
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="public_visible"
-              checked={formData.public_visible}
-              onCheckedChange={(checked) =>
-                setFormData({ ...formData, public_visible: checked === true })
-              }
-              disabled={loading}
-            />
-            <Label htmlFor="public_visible" className="cursor-pointer">
-              Rodyti viešame puslapyje
-            </Label>
-          </div>
-
-          <div className="flex justify-end gap-2">
+          <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
               Atšaukti
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} variant="outline">
               {loading ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Kuriama...
                 </>
               ) : (
-                'Sukurti'
+                <>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Sukurti juodraštį
+                </>
               )}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   )
 }
-

@@ -36,12 +36,13 @@ export function LandingHeader({
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-sm">
-      <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between">
+    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur-sm shadow-sm">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Left side: Logo */}
           <Link
             href="/"
-            className="hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="flex items-center hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             <Logo
               variant="full"
@@ -53,7 +54,8 @@ export function LandingHeader({
             />
           </Link>
 
-          <div className="flex items-center gap-3">
+          {/* Right side: Auth buttons or user menu */}
+          <div className="flex items-center gap-2 sm:gap-3">
             {isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -126,16 +128,29 @@ export function LandingHeader({
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Button 
-                asChild 
-                size="sm" 
-                className="bg-blue-600 hover:bg-blue-700 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 shadow-sm"
-              >
-                <Link href="/login" className="flex items-center gap-2">
-                  <LogIn className="h-4 w-4" />
-                  Prisijungti
-                </Link>
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button 
+                  asChild 
+                  variant="outline"
+                  size="sm" 
+                  className="flex items-center gap-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <Link href="/register" className="flex items-center gap-2">
+                    <span>Registruotis</span>
+                  </Link>
+                </Button>
+                <Button 
+                  asChild 
+                  variant="ghost"
+                  size="sm" 
+                  className="flex items-center gap-2 text-slate-700 hover:text-slate-900 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <Link href="/login" className="flex items-center gap-2">
+                    <LogIn className="h-4 w-4" />
+                    <span>Prisijungti</span>
+                  </Link>
+                </Button>
+              </div>
             )}
           </div>
         </div>

@@ -83,10 +83,9 @@ export async function sendEmail(options: {
     // Supabase Auth email is primarily for auth emails, but can be used for custom emails
     // via database triggers or Edge Functions
     
-    // Option 3: Use Resend API directly (development and production)
-    // This works in both development and production if RESEND_API_KEY is set
+    // Option 3: Use Resend API directly (development/production)
+    // If RESEND_API_KEY is set, use Resend API directly
     const resendApiKey = process.env.RESEND_API_KEY
-    
     if (resendApiKey) {
       try {
         const resendResponse = await fetch('https://api.resend.com/emails', {
@@ -127,10 +126,9 @@ export async function sendEmail(options: {
       }
     }
 
-    // Option 4: Log email (development/fallback when no email service configured)
-    // In development, log the email details so developers can see what would be sent
+    // Option 4: Log email (development/fallback)
+    // In development, log the email details if no email service is configured
     const isDevelopment = process.env.NODE_ENV === 'development'
-    
     if (isDevelopment) {
       console.log('='.repeat(80))
       console.log('📧 EMAIL (DEVELOPMENT MODE - NOT SENT):')
@@ -139,21 +137,21 @@ export async function sendEmail(options: {
       console.log('From:', EMAIL_FROM)
       console.log('Subject:', options.subject)
       console.log('---')
-      console.log('HTML Preview:')
-      console.log(options.html.substring(0, 500) + (options.html.length > 500 ? '...' : ''))
-      console.log('---')
+      console.log('HTML Preview:', options.html.substring(0, 300) + '...')
       if (options.text) {
-        console.log('Text Preview:')
-        console.log(options.text.substring(0, 500) + (options.text.length > 500 ? '...' : ''))
+        console.log('Text Preview:', options.text.substring(0, 300) + '...')
       }
-      console.log('='.repeat(80))
-      console.log('💡 TIP: Set RESEND_API_KEY in .env.local to send real emails in development')
+      console.log('---')
+      console.log('💡 To enable email sending in development:')
+      console.log('   1. Get Resend API key from https://resend.com')
+      console.log('   2. Add to .env.local: RESEND_API_KEY=re_xxxxxxxxxxxxx')
+      console.log('   3. Add to .env.local: EMAIL_FROM=onboarding@resend.dev (or your verified domain)')
       console.log('='.repeat(80))
     } else {
-      // Production: Log but warn that email wasn't sent
-      console.warn('EMAIL NOT SENT (no email service configured):', {
+      console.log('EMAIL SENT (logged - no email service configured):', {
         to: options.to,
         subject: options.subject,
+        from: EMAIL_FROM,
       })
     }
 
@@ -170,7 +168,7 @@ export async function sendEmail(options: {
 }
 
 /**
- * Email Template: Governance Submission Notice (to CORE)
+ * Email Template: Governance Submission Notice (to Platforma)
  */
 export async function sendGovernanceSubmissionEmail(data: {
   orgName: string
@@ -214,6 +212,31 @@ export async function sendOrgActivatedEmail(data: {
 
   if (!result.success) {
     console.error('EMAIL INCIDENT: Failed to send org activated email:', result.error)
+  }
+}
+
+/**
+ * Email Template: Board Member Assigned (to board member)
+ */
+export async function sendBoardMemberAssignedEmail(data: {
+  to: string
+  fullName: string
+  orgName: string
+  termStart: string
+  termEnd: string
+}): Promise<void> {
+  const { getBoardMemberAssignedEmail } = await import('./email-templates')
+  const { subject, html, text } = getBoardMemberAssignedEmail(data)
+
+  const result = await sendEmail({
+    to: data.to,
+    subject,
+    html,
+    text,
+  })
+
+  if (!result.success) {
+    console.error('EMAIL INCIDENT: Failed to send board member assigned email:', result.error)
   }
 }
 

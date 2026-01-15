@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { FileText, Download, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
 import { previewMeetingProtocol, type ProtocolSnapshot } from '@/app/actions/protocols'
+import { getVoteLiveTotals, getVoteTallies } from '@/app/actions/live-voting'
 import { useToast } from '@/components/ui/use-toast'
 
 interface ProtocolPreviewProps {
@@ -14,11 +15,18 @@ interface ProtocolPreviewProps {
   onFinalize?: () => void
 }
 
+interface VoteBreakdown {
+  voteId: string
+  liveTotals: { votes_for: number; votes_against: number; votes_abstain: number; votes_total: number } | null
+  remoteTotals: { votes_for: number; votes_against: number; votes_abstain: number; votes_total: number } | null
+}
+
 export function ProtocolPreview({ meetingId, onFinalize }: ProtocolPreviewProps) {
   const { toast } = useToast()
   const [snapshot, setSnapshot] = useState<ProtocolSnapshot | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [voteBreakdowns, setVoteBreakdowns] = useState<Record<string, VoteBreakdown>>({})
 
   const handlePreview = async () => {
     setLoading(true)
@@ -27,6 +35,28 @@ export function ProtocolPreview({ meetingId, onFinalize }: ProtocolPreviewProps)
       const result = await previewMeetingProtocol(meetingId)
       if (result.success && result.snapshot) {
         setSnapshot(result.snapshot)
+        // Fetch live and remote tallies separately for breakdown display
+        const breakdowns: Record<string, VoteBreakdown> = {}
+        const voteIds = result.snapshot.agenda
+          ?.filter((item) => item.vote?.id)
+          .map((item) => item.vote!.id) || []
+        for (const voteId of voteIds) {
+          const [liveTotals, remoteTotals] = await Promise.all([
+            getVoteLiveTotals(voteId),
+            getVoteTallies(voteId),
+          ])
+          breakdowns[voteId] = {
+            voteId,
+            liveTotals: liveTotals ? {
+              votes_for: liveTotals.live_for_count,
+              votes_against: liveTotals.live_against_count,
+              votes_abstain: liveTotals.live_abstain_count,
+              votes_total: liveTotals.live_for_count + liveTotals.live_against_count + liveTotals.live_abstain_count,
+            } : null,
+            remoteTotals,
+          }
+        }
+        setVoteBreakdowns(breakdowns)
       } else {
         setError(result.error || 'Nepavyko peržiūrėti protokolo')
         toast({
@@ -58,6 +88,7 @@ export function ProtocolPreview({ meetingId, onFinalize }: ProtocolPreviewProps)
     })
   }
 
+
   if (!snapshot) {
     return (
       <Card>
@@ -82,11 +113,11 @@ export function ProtocolPreview({ meetingId, onFinalize }: ProtocolPreviewProps)
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
+        <CardHeader className="bg-blue-50 border-b">
           <div className="flex items-center justify-between">
-            <CardTitle>Protokolo peržiūra</CardTitle>
-            <Button variant="outline" onClick={() => setSnapshot(null)}>
-              Uždaryti
+            <CardTitle>📄 Protokolo peržiūra</CardTitle>
+            <Button variant="destructive" size="sm" onClick={() => setSnapshot(null)}>
+              ✕ Uždaryti peržiūrą
             </Button>
           </div>
         </CardHeader>
@@ -205,21 +236,72 @@ export function ProtocolPreview({ meetingId, onFinalize }: ProtocolPreviewProps)
                               </span>
                             )}
                           </div>
-                          {item.vote.tallies && (
-                            <div className="grid grid-cols-3 gap-2 text-sm">
-                              <div className="text-green-600">
-                                UŽ: <strong>{item.vote.tallies.votes_for}</strong>
+                          {item.vote.tallies ? (
+                            <div className="space-y-3">
+                              {/* Combined totals */}
+                              <div>
+                                <p className="text-xs font-medium text-gray-700 mb-1">Iš viso balsų:</p>
+                                <div className="grid grid-cols-3 gap-2 text-sm">
+                                  <div className="text-green-600">
+                                    UŽ: <strong>{item.vote.tallies.votes_for}</strong>
+                                  </div>
+                                  <div className="text-red-600">
+                                    PRIEŠ: <strong>{item.vote.tallies.votes_against}</strong>
+                                  </div>
+                                  <div className="text-gray-600">
+                                    SUSILAIKĖ: <strong>{item.vote.tallies.votes_abstain}</strong>
+                                  </div>
+                                  <div className="col-span-3 text-xs text-gray-500">
+                                    Iš viso: {item.vote.tallies.votes_total} balsų
+                                  </div>
+                                </div>
                               </div>
-                              <div className="text-red-600">
-                                PRIEŠ: <strong>{item.vote.tallies.votes_against}</strong>
-                              </div>
-                              <div className="text-gray-600">
-                                SUSILAIKĖ: <strong>{item.vote.tallies.votes_abstain}</strong>
-                              </div>
-                              <div className="col-span-3 text-xs text-gray-500">
-                                Iš viso: {item.vote.tallies.votes_total} balsų
-                              </div>
+                              {/* Breakdown: Live vs Remote */}
+                              {(() => {
+                                const breakdown = voteBreakdowns[item.vote.id]
+                                const hasLiveData = breakdown?.liveTotals && (breakdown.liveTotals.votes_total > 0)
+                                const hasRemoteData = breakdown?.remoteTotals && (breakdown.remoteTotals.votes_total > 0)
+                                if (!hasLiveData && !hasRemoteData) return null
+                                return (
+                                  <div className="space-y-2 pt-2 border-t">
+                                    {hasLiveData && (
+                                      <div>
+                                        <p className="text-xs font-medium text-blue-900 mb-1">Gyvo balsavimo rezultatai:</p>
+                                        <div className="grid grid-cols-3 gap-2 text-xs ml-2">
+                                          <div className="text-green-600">
+                                            UŽ: <strong>{breakdown.liveTotals!.votes_for}</strong>
+                                          </div>
+                                          <div className="text-red-600">
+                                            PRIEŠ: <strong>{breakdown.liveTotals!.votes_against}</strong>
+                                          </div>
+                                          <div className="text-gray-600">
+                                            SUSILAIKĖ: <strong>{breakdown.liveTotals!.votes_abstain}</strong>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {hasRemoteData && (
+                                      <div>
+                                        <p className="text-xs font-medium text-blue-900 mb-1">Nuotolinio balsavimo rezultatai:</p>
+                                        <div className="grid grid-cols-3 gap-2 text-xs ml-2">
+                                          <div className="text-green-600">
+                                            UŽ: <strong>{breakdown.remoteTotals!.votes_for}</strong>
+                                          </div>
+                                          <div className="text-red-600">
+                                            PRIEŠ: <strong>{breakdown.remoteTotals!.votes_against}</strong>
+                                          </div>
+                                          <div className="text-gray-600">
+                                            SUSILAIKĖ: <strong>{breakdown.remoteTotals!.votes_abstain}</strong>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })()}
                             </div>
+                          ) : (
+                            <p className="text-sm text-gray-500">Balsavimo rezultatai dar nėra pateikti</p>
                           )}
                         </div>
                       </div>
@@ -253,6 +335,17 @@ export function ProtocolPreview({ meetingId, onFinalize }: ProtocolPreviewProps)
               </Button>
             </div>
           )}
+
+          {/* Close button at bottom - always visible */}
+          <div className="pt-4 mt-4 border-t flex justify-center">
+            <Button 
+              variant="outline" 
+              onClick={() => setSnapshot(null)}
+              className="w-full max-w-xs"
+            >
+              ← Uždaryti peržiūrą ir grįžti
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

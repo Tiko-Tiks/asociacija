@@ -265,54 +265,10 @@ export async function updateInvoiceStatus(
   // Step 1.5: Check org activation (CRITICAL)
   await requireOrgActive(invoice.org_id)
 
-  // Step 2: Resolve ACTIVE membership where:
-  //   user_id = auth.uid() (from requireAuth)
-  //   org_id = invoice.org_id (derived from invoices table)
-  //   status = ACTIVE (strict requirement)
-  const { data: membership, error: membershipError }: any = await supabase
-    .from('memberships')
-    .select('id, role, status')
-    .eq('user_id', user.id)
-    .eq('org_id', invoice.org_id)
-    .eq('status', MEMBERSHIP_STATUS.ACTIVE)
-    .maybeSingle()
-
-  if (membershipError) {
-    if (membershipError?.code === '42501') {
-      authViolation()
-    }
-    console.error('Error fetching membership:', membershipError)
-    operationFailed()
-  }
-
-  // Step 3: STRICT GUARD - Verify membership exists, status = ACTIVE, role = OWNER
-  if (!membership) {
-    console.error('No ACTIVE membership found for user in invoice organization:', {
-      user_id: user.id,
-      invoice_org_id: invoice.org_id,
-    })
-    operationFailed()
-  }
-
-  // Explicit check: membership member_status must be ACTIVE (already filtered, but double-check)
-  // CRITICAL: Use member_status (not status) per schema fix
-  if (membership.member_status !== MEMBERSHIP_STATUS.ACTIVE) {
-    console.error('Membership member_status is not ACTIVE:', {
-      membership_id: membership.id,
-      member_status: membership.member_status,
-    })
-    operationFailed()
-  }
-
-  // Explicit check: role must be OWNER
-  if (membership.role !== MEMBERSHIP_ROLE.OWNER) {
-    console.error('User role is not OWNER:', {
-      membership_id: membership.id,
-      role: membership.role,
-      required_role: MEMBERSHIP_ROLE.OWNER,
-    })
-    operationFailed()
-  }
+  // Step 2-3: Verify user is ACTIVE OWNER using consolidated guard
+  // This replaces the manual membership query + role checks
+  const { requireOwner } = await import('@/app/domain/guards/membership')
+  await requireOwner(supabase, user.id, invoice.org_id)
 
   // Step 4: Update invoice status (guard passed - user is ACTIVE OWNER in invoice.org_id)
   const { error: updateError }: any = await supabase

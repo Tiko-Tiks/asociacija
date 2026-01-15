@@ -79,6 +79,18 @@ export interface ProtocolSnapshot {
         votes_abstain: number
         votes_total: number
       } | null
+      live_tallies?: {
+        votes_for: number
+        votes_against: number
+        votes_abstain: number
+        votes_total: number
+      } | null
+      remote_tallies?: {
+        votes_for: number
+        votes_against: number
+        votes_abstain: number
+        votes_total: number
+      } | null
     } | null
     attachments: Array<{
       id: string
@@ -170,9 +182,22 @@ export async function finalizeMeetingProtocol(meetingId: string): Promise<{
 
   const result = data?.[0]
   if (!result?.ok) {
+    // Translate error reasons to user-friendly messages
+    let errorMessage = result?.reason || 'Failed to finalize protocol'
+    
+    if (result?.reason === 'ALREADY_FINALIZED') {
+      errorMessage = 'Protokolas jau finalizuotas. Pakartotinis finalizavimas negalimas.'
+    } else if (result?.reason === 'MEETING_ALREADY_COMPLETED') {
+      errorMessage = 'Susirinkimas jau užbaigtas. Protokolas jau egzistuoja.'
+    } else if (result?.reason?.startsWith('VOTE_NOT_CLOSED')) {
+      errorMessage = 'Visi balsavimai turi būti uždaryti prieš finalizuojant protokolą.'
+    } else if (result?.reason?.startsWith('VOTE_NOT_FOUND')) {
+      errorMessage = 'Nerasta balsavimo darbotvarkės klausimui. Patikrinkite ar visi klausimai turi balsavimus.'
+    }
+    
     return {
       success: false,
-      error: result?.reason || 'Failed to finalize protocol',
+      error: errorMessage,
     }
   }
 
@@ -326,6 +351,125 @@ export async function updateProtocolPdf(
     return {
       success: false,
       error: result?.reason || 'Failed to update PDF path',
+    }
+  }
+
+  revalidatePath('/dashboard/[slug]/meetings', 'page')
+  return {
+    success: true,
+  }
+}
+
+/**
+ * Upload signed protocol PDF
+ * Uploads PDF file to Supabase Storage and updates protocol PDF path
+ * Uses RPC set_protocol_pdf to update FINAL protocols (immutable otherwise)
+ */
+export async function uploadProtocolPdf(
+  protocolId: string,
+  formData: FormData
+): Promise<{
+  success: boolean
+  error?: string
+}> {
+  const supabase = await createClient()
+  await requireAuth(supabase)
+
+  const file = formData.get('file') as File | null
+  if (!file) {
+    return {
+      success: false,
+      error: 'No file provided',
+    }
+  }
+
+  // Validate file type
+  if (file.type !== 'application/pdf') {
+    return {
+      success: false,
+      error: 'Only PDF files are allowed',
+    }
+  }
+
+  // Validate file size (10MB max)
+  const maxSize = 10 * 1024 * 1024 // 10MB
+  if (file.size > maxSize) {
+    return {
+      success: false,
+      error: 'File size must be less than 10MB',
+    }
+  }
+
+  // Get protocol to get org_id and meeting_id for path
+  const { data: protocol, error: protocolError } = await supabase
+    .from('meeting_protocols')
+    .select('org_id, meeting_id, version, status')
+    .eq('id', protocolId)
+    .single()
+
+  if (protocolError || !protocol) {
+    return {
+      success: false,
+      error: 'Protocol not found',
+    }
+  }
+
+  // Only allow FINAL protocols
+  if (protocol.status !== 'FINAL') {
+    return {
+      success: false,
+      error: 'Can only upload PDF for FINAL protocols',
+    }
+  }
+
+  // Upload PDF to Storage
+  // Note: Supabase storage.upload() accepts File, Blob, ArrayBuffer, Buffer, or Uint8Array
+  const pdfPath = `org/${protocol.org_id}/meetings/${protocol.meeting_id}/protocols/${protocolId}_v${protocol.version}_signed.pdf`
+  const bucket = 'protocols'
+
+  // Convert File to Buffer for upload (Node.js Buffer is available in server actions)
+  const arrayBuffer = await file.arrayBuffer()
+  // Use Buffer.from() - it's available in Node.js runtime (server actions)
+  const buffer = Buffer.from(arrayBuffer)
+
+  const { error: uploadError } = await supabase.storage
+    .from(bucket)
+    .upload(pdfPath, buffer, {
+      contentType: 'application/pdf',
+      upsert: true,
+    })
+
+  if (uploadError) {
+    console.error('Error uploading PDF:', uploadError)
+    return {
+      success: false,
+      error: `Failed to upload PDF: ${uploadError.message || 'Unknown error'}`,
+    }
+  }
+
+  // Update protocol PDF path via RPC
+  const { data: rpcData, error: rpcError }: any = await supabase.rpc('set_protocol_pdf', {
+    p_protocol_id: protocolId,
+    p_bucket: bucket,
+    p_path: pdfPath,
+  })
+
+  if (rpcError) {
+    if (rpcError.code === '42501') {
+      authViolation()
+    }
+    console.error('Error updating protocol PDF path:', rpcError)
+    return {
+      success: false,
+      error: rpcError.message || 'Failed to update protocol PDF path',
+    }
+  }
+
+  const result = rpcData?.[0]
+  if (!result?.ok) {
+    return {
+      success: false,
+      error: result?.reason || 'Failed to update protocol PDF path',
     }
   }
 

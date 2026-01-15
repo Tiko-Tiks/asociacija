@@ -24,24 +24,37 @@ export async function getActiveRuleset(membership_id: string): Promise<{
   const user = await requireAuth(supabase)
   const membership = await loadActiveMembership(supabase, membership_id, user.id)
 
-  // Query active ruleset version for the org
+  // First try: Query org_rulesets (where onboarding answers are stored)
+  const { data: orgRuleset, error: orgRulesetError }: any = await supabase
+    .from('org_rulesets')
+    .select('answers')
+    .eq('org_id', membership.org_id)
+    .eq('status', 'ACTIVE')
+    .maybeSingle()
+
+  if (orgRuleset && orgRuleset.answers) {
+    const answers = orgRuleset.answers
+    // Parse governance answers from JSONB
+    // Keys from governance_questions: meeting_notice_days, quorum_percentage, annual_fee, etc.
+    return {
+      quorum_percentage: parseInt(answers.quorum_percentage) || parseInt(answers.kvorumas) || 50,
+      notice_period_days: parseInt(answers.meeting_notice_days) || parseInt(answers.notice_period_days) || 0,
+      annual_fee: parseFloat(answers.annual_fee) || parseFloat(answers.metinis_mokestis) || 0,
+    }
+  }
+
+  // Fallback: Query ruleset_versions (legacy table)
   const { data: ruleset, error: rulesetError }: any = await supabase
     .from('ruleset_versions')
     .select('quorum_percentage, notice_period_days, annual_fee')
     .eq('org_id', membership.org_id)
     .eq('status', 'ACTIVE')
-    .single()
+    .maybeSingle()
 
-  if (rulesetError) {
+  if (rulesetError && rulesetError?.code !== 'PGRST116') {
     if (rulesetError?.code === '42501') {
       authViolation()
     }
-    // If no active ruleset found (PGRST116), return null (not an error)
-    if (rulesetError?.code === 'PGRST116') {
-      return null
-    }
-    // For other errors (table doesn't exist, RLS issues, etc.), log and return null
-    // This makes the function resilient - governance page can still render without ruleset
     console.error('getActiveRuleset: query error (returning null):', {
       code: rulesetError.code,
       message: rulesetError.message,
@@ -50,7 +63,15 @@ export async function getActiveRuleset(membership_id: string): Promise<{
     return null
   }
 
-  return ruleset || null
+  if (ruleset) {
+    return {
+      quorum_percentage: ruleset.quorum_percentage || 50,
+      notice_period_days: ruleset.notice_period_days || 0,
+      annual_fee: ruleset.annual_fee || 0,
+    }
+  }
+
+  return null
 }
 
 /**
@@ -66,6 +87,7 @@ export async function listMeetings(membership_id: string): Promise<
     id: string
     title: string
     scheduled_at: string
+    status?: string
     quorum_met: boolean | null
     created_at: string
   }>
@@ -77,7 +99,7 @@ export async function listMeetings(membership_id: string): Promise<
   // Query meetings for this org
   const { data: meetings, error: meetingsError }: any = await supabase
     .from('meetings')
-    .select('id, title, scheduled_at, quorum_met, created_at')
+    .select('id, title, scheduled_at, status, quorum_met, created_at')
     .eq('org_id', membership.org_id)
     .order('scheduled_at', { ascending: false })
 
@@ -98,6 +120,7 @@ export async function listMeetings(membership_id: string): Promise<
     id: meeting.id,
     title: meeting.title,
     scheduled_at: meeting.scheduled_at,
+    status: meeting.status || 'DRAFT',
     quorum_met: meeting.quorum_met,
     created_at: meeting.created_at,
   }))
@@ -192,17 +215,10 @@ export async function getMeeting(
     present: attendanceMap.get(m.id) || false,
   }))
 
-  // Query protocols (media_items) for this meeting
-  const { data: protocols, error: protocolsError }: any = await supabase
-    .from('media_items')
-    .select('id, url, created_at')
-    .eq('object_id', meeting_id)
-    .eq('object_type', 'MEETING')
-
-  if (protocolsError && protocolsError?.code !== '42501') {
-    // Non-RLS errors should be logged but not fail the request
-    console.error('Error fetching protocols:', protocolsError)
-  }
+  // Query protocols - v17.0: media_items table does not exist
+  // TODO: Implement protocol query using v17.0 schema (if protocols are needed)
+  // For now, return empty array as media_items is not in v17.0 schema
+  const protocols: any[] = []
 
   return {
     id: meeting.id,
@@ -210,11 +226,7 @@ export async function getMeeting(
     scheduled_at: meeting.scheduled_at,
     quorum_met: meeting.quorum_met,
     attendance: attendanceList,
-    protocols: (protocols || []).map((p: any) => ({
-      id: p.id,
-      url: p.url,
-      created_at: p.created_at,
-    })),
+    protocols: [],
   }
 }
 
@@ -230,10 +242,14 @@ export async function getMeeting(
  * @throws Error('auth_violation') if authentication fails or user lacks permission
  * @throws Error('operation_failed') if creation fails
  */
+// Import meeting types from domain (cannot export non-functions from 'use server' files)
+import { MeetingType } from '@/app/domain/meeting-types'
+
 export async function createMeeting(
   membership_id: string,
   title: string,
-  scheduled_at: string
+  scheduled_at: string,
+  meeting_type: MeetingType = 'GA'
 ): Promise<{ id: string }> {
   const supabase = await createClient()
   const user = await requireAuth(supabase)
@@ -264,6 +280,7 @@ export async function createMeeting(
     org_id: membership.org_id,
     title,
     scheduled_at,
+    meeting_type,
   }).select('id').single()
 
   if (meetingError) {
@@ -392,21 +409,10 @@ export async function createProtocol(
     operationFailed()
   }
 
-  // Insert protocol (media_item) record
-  // Schema v15.1: media_items table columns: object_id, object_type, category
-  // Note: url column does NOT exist in schema v15.1
-  const { error: insertError }: any = await (supabase.from('media_items') as any).insert({
-    object_id: meeting_id,
-    object_type: 'MEETING',
-    category: 'PROTOCOL',
-  })
-
-  if (insertError) {
-    if (insertError?.code === '42501') {
-      authViolation()
-    }
-    operationFailed()
-  }
+  // Insert protocol - v17.0: media_items table does not exist
+  // TODO: Implement protocol creation using v17.0 schema (if protocols are needed)
+  // For now, skip protocol creation as media_items is not in v17.0 schema
+  console.warn('Protocol creation skipped: media_items table does not exist in v17.0 schema')
 
   const { revalidatePath } = await import('next/cache')
   revalidatePath(`/dashboard/governance/${meeting_id}`)

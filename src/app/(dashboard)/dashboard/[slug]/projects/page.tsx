@@ -1,14 +1,15 @@
-import { notFound, redirect } from 'next/navigation'
-import { listProjects } from '@/app/actions/projects'
-import { getUserOrgs, getMembershipRole } from '@/app/actions/organizations'
-import { ProjectsListClient } from '@/components/projects/projects-list-client'
-import { isPilotMode } from '@/lib/pilot-mode'
+import { notFound } from 'next/navigation'
+import { getUserOrgs } from '@/app/actions/organizations'
+import ProjectsRegistryList from '@/components/projects/ProjectsRegistryList'
 
 /**
  * Projects Page - Slug-based routing
  * 
  * URL: /dashboard/[slug]/projects
  * Security: Verifies user belongs to the org defined by [slug]
+ * 
+ * Projects Registry v19.0 — Read-only view of projects
+ * derived from APPROVED resolutions.
  */
 async function ProjectsListContent({ slug }: { slug: string }) {
   // Fetch all orgs user belongs to
@@ -22,33 +23,7 @@ async function ProjectsListContent({ slug }: { slug: string }) {
     notFound()
   }
 
-  // Fetch projects and user role
-  const [projects, userRole] = await Promise.all([
-    listProjects(selectedOrg.id),
-    getMembershipRole(selectedOrg.membership_id),
-  ])
-
-  // Ensure projects is always an array
-  const projectsList = Array.isArray(projects) ? projects : []
-
-  // MEMBER users: Do not render Projects page unless at least one project exists
-  if (userRole === 'MEMBER' && projectsList.length === 0) {
-    return null
-  }
-
-  // OWNER users: Always render page, even with empty projects
-  const pilotMode = isPilotMode(selectedOrg.slug)
-  
-  return (
-    <ProjectsListClient
-      projects={projectsList}
-      membershipId={selectedOrg.membership_id}
-      orgId={selectedOrg.id}
-      orgSlug={selectedOrg.slug}
-      userRole={userRole}
-      pilotMode={pilotMode}
-    />
-  )
+  return <ProjectsRegistryList orgId={selectedOrg.id} orgSlug={slug} />
 }
 
 export default async function ProjectsPage({

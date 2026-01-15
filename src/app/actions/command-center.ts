@@ -120,12 +120,14 @@ export async function getCommandCenterData(
       .order('created_at', { ascending: false })
       .limit(20),
 
-    // 7. Get open ideas (status = OPEN)
+    // 7. Get active ideas (not FAILED/abandoned)
+    // v19.0 COMPLIANT: Count ideas where status != 'FAILED'
+    // Phase is in metadata.fact.phase, but we use status for counting
     supabase
       .from('ideas')
       .select('id', { count: 'exact', head: true })
       .eq('org_id', orgId)
-      .eq('status', 'OPEN')
+      .neq('status', 'FAILED')
       .then((result) => result)
       .catch((error) => {
         if (error?.code === '42P01') {

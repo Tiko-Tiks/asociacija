@@ -1,6 +1,8 @@
 export const MEMBERSHIP_STATUS = {
+  PENDING: 'PENDING',
   ACTIVE: 'ACTIVE',
   SUSPENDED: 'SUSPENDED',
+  LEFT: 'LEFT',
 } as const
 
 export const PROJECT_STATUS = {
@@ -31,8 +33,9 @@ export const PROJECT_AUDIT_ACTION = {
 } as const
 
 export const INVOICE_STATUS = {
-  PAID: 'PAID',
+  DRAFT: 'DRAFT',
   SENT: 'SENT',
+  PAID: 'PAID',
   OVERDUE: 'OVERDUE',
 } as const
 

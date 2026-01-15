@@ -3,178 +3,21 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from './_guards'
 import { authViolation, operationFailed } from '@/app/domain/errors'
-import { revalidatePath } from 'next/cache'
-
-// ==================================================
-// TYPES
-// ==================================================
-
-export interface MeetingAttendanceMember {
-  membership_id: string
-  user_id: string
-  full_name: string | null
-  present: boolean
-  mode: 'IN_PERSON' | 'WRITTEN' | 'REMOTE'
-  joined_at: string | null
-  voted_remotely: boolean
-}
-
-export interface CanRegisterInPersonResult {
-  allowed: boolean
-  reason: string
-  details?: {
-    membership_id?: string
-    message?: string
-  }
-}
-
-export interface RegisterAttendanceResult {
-  ok: boolean
-  reason: string
-}
-
-export interface MeetingUniqueParticipants {
-  remote_participants: number
-  live_participants: number
-  total_participants: number
-}
-
-// ==================================================
-// SERVER ACTIONS
-// ==================================================
 
 /**
- * Check if a member can register as IN_PERSON for a meeting
+ * Register remote attendance for a meeting
+ * This marks the member as participating remotely (will vote via web)
  */
-export async function canRegisterInPerson(
-  meetingId: string,
-  userId: string
-): Promise<CanRegisterInPersonResult> {
-  const supabase = await createClient()
-  await requireAuth(supabase)
-
-  const { data, error } = await supabase.rpc('can_register_in_person', {
-    p_meeting_id: meetingId,
-    p_user_id: userId,
-  })
-
-  if (error) {
-    console.error('Error checking registration eligibility:', error)
-    return {
-      allowed: false,
-      reason: 'OPERATION_FAILED',
-    }
-  }
-
-  const result = data?.[0]
-  if (!result) {
-    return {
-      allowed: false,
-      reason: 'OPERATION_FAILED',
-    }
-  }
-
-  return {
-    allowed: result.allowed,
-    reason: result.reason,
-    details: result.details || {},
-  }
-}
-
-/**
- * Register a member as IN_PERSON for a meeting
- * Requires OWNER/BOARD role
- */
-export async function registerInPersonAttendance(
-  meetingId: string,
-  membershipId: string
-): Promise<RegisterAttendanceResult> {
-  const supabase = await createClient()
-  await requireAuth(supabase)
-
-  const { data, error } = await supabase.rpc('register_in_person_attendance', {
-    p_meeting_id: meetingId,
-    p_membership_id: membershipId,
-  })
-
-  if (error) {
-    console.error('Error registering attendance:', error)
-    if (error.code === '42501') {
-      authViolation()
-    }
-    return {
-      ok: false,
-      reason: 'OPERATION_FAILED',
-    }
-  }
-
-  const result = data?.[0]
-  if (!result) {
-    return {
-      ok: false,
-      reason: 'OPERATION_FAILED',
-    }
-  }
-
-  revalidatePath('/dashboard', 'layout')
-  return {
-    ok: result.ok,
-    reason: result.reason,
-  }
-}
-
-/**
- * Unregister a member from IN_PERSON attendance
- * Requires OWNER/BOARD role
- */
-export async function unregisterInPersonAttendance(
-  meetingId: string,
-  membershipId: string
-): Promise<RegisterAttendanceResult> {
-  const supabase = await createClient()
-  await requireAuth(supabase)
-
-  const { data, error } = await supabase.rpc('unregister_in_person_attendance', {
-    p_meeting_id: meetingId,
-    p_membership_id: membershipId,
-  })
-
-  if (error) {
-    console.error('Error unregistering attendance:', error)
-    if (error.code === '42501') {
-      authViolation()
-    }
-    return {
-      ok: false,
-      reason: 'OPERATION_FAILED',
-    }
-  }
-
-  const result = data?.[0]
-  if (!result) {
-    return {
-      ok: false,
-      reason: 'OPERATION_FAILED',
-    }
-  }
-
-  revalidatePath('/dashboard', 'layout')
-  return {
-    ok: result.ok,
-    reason: result.reason,
-  }
-}
-
-/**
- * Get attendance list for a meeting
- */
-export async function getMeetingAttendance(
+export async function registerRemoteAttendance(
   meetingId: string
-): Promise<MeetingAttendanceMember[]> {
+): Promise<{
+  success: boolean
+  error?: string
+}> {
   const supabase = await createClient()
-  await requireAuth(supabase)
+  const user = await requireAuth(supabase)
 
-  // Get meeting to verify org access
+  // Get meeting and membership
   const { data: meeting, error: meetingError } = await supabase
     .from('meetings')
     .select('org_id')
@@ -182,75 +25,206 @@ export async function getMeetingAttendance(
     .single()
 
   if (meetingError || !meeting) {
-    console.error('Error fetching meeting:', meetingError)
-    if (meetingError?.code === '42501') {
-      authViolation()
+    return {
+      success: false,
+      error: 'Susirinkimas nerastas',
     }
-    operationFailed()
   }
 
-  // Get all memberships for this org
-  const { data: memberships, error: membershipsError } = await supabase
+  // Get active membership
+  const { data: membership, error: membershipError } = await supabase
     .from('memberships')
-    .select('id, user_id, status')
+    .select('id')
+    .eq('user_id', user.id)
     .eq('org_id', meeting.org_id)
     .eq('status', 'ACTIVE')
+    .single()
 
-  if (membershipsError) {
-    console.error('Error fetching memberships:', membershipsError)
-    if (membershipsError.code === '42501') {
+  if (membershipError || !membership) {
+    if (membershipError?.code === '42501') {
       authViolation()
     }
-    operationFailed()
+    return {
+      success: false,
+      error: 'Narystė nerasta',
+    }
   }
 
-  if (!memberships || memberships.length === 0) {
+  // Check if already registered (either remote or in-person)
+  const { data: existingAttendance } = await supabase
+    .from('meeting_attendance')
+    .select('id, attendance_type')
+    .eq('meeting_id', meetingId)
+    .eq('membership_id', membership.id)
+    .maybeSingle()
+
+  if (existingAttendance) {
+    // Already registered
+    return {
+      success: true, // Already registered, consider it success
+    }
+  }
+
+  // Register remote attendance
+  // Note: Remote attendance is registered when first vote is cast
+  // This function just confirms intent to vote remotely
+  // Actual registration happens in cast_vote RPC when channel='web' or 'REMOTE'
+
+  return {
+    success: true,
+  }
+}
+
+/**
+ * Check if member has registered remote attendance intent
+ */
+export async function hasRemoteAttendanceIntent(
+  meetingId: string
+): Promise<boolean> {
+  const supabase = await createClient()
+  const user = await requireAuth(supabase)
+
+  // Get meeting and membership
+  const { data: meeting, error: meetingError } = await supabase
+    .from('meetings')
+    .select('org_id')
+    .eq('id', meetingId)
+    .single()
+
+  if (meetingError || !meeting) {
+    return false
+  }
+
+  // Get active membership
+  const { data: membership, error: membershipError } = await supabase
+    .from('memberships')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('org_id', meeting.org_id)
+    .eq('status', 'ACTIVE')
+    .single()
+
+  if (membershipError || !membership) {
+    return false
+  }
+
+  // Check if has voted remotely (which registers attendance)
+  const { data: remoteVote } = await supabase
+    .from('vote_ballots')
+    .select('id')
+    .eq('membership_id', membership.id)
+    .in('channel', ['web', 'REMOTE', 'WRITTEN'])
+    .limit(1)
+
+  // Also check meeting_remote_voters view
+  const { data: remoteVoter } = await supabase
+    .from('meeting_remote_voters')
+    .select('membership_id')
+    .eq('meeting_id', meetingId)
+    .eq('membership_id', membership.id)
+    .maybeSingle()
+
+  return remoteVote !== null || remoteVoter !== null
+}
+
+// ==================================================
+// IN-PERSON ATTENDANCE (FOR CHECK-IN LIST)
+// ==================================================
+
+export interface AttendanceRecord {
+  membership_id: string
+  member_name: string
+  member_email: string
+  attendance_type: 'IN_PERSON' | 'REMOTE' | null
+  checked_in_at: string | null
+}
+
+// Alias for backward compatibility
+export type MeetingAttendanceMember = AttendanceRecord
+
+/**
+ * Get meeting attendance list
+ */
+export async function getMeetingAttendance(
+  meetingId: string
+): Promise<AttendanceRecord[]> {
+  const supabase = await createClient()
+  await requireAuth(supabase)
+
+  console.log('[getMeetingAttendance] Meeting ID:', meetingId)
+
+  // Get meeting org_id
+  const { data: meeting, error: meetingError } = await supabase
+    .from('meetings')
+    .select('org_id')
+    .eq('id', meetingId)
+    .single()
+
+  if (meetingError || !meeting) {
+    console.error('[getMeetingAttendance] Meeting not found:', meetingError)
     return []
   }
 
-  // Get profiles for all user_ids
-  const userIds = memberships.map((m) => m.user_id)
+  console.log('[getMeetingAttendance] Meeting org_id:', meeting.org_id)
+
+  // Get all active members of the org
+  const { data: memberships, error: membersError } = await supabase
+    .from('memberships')
+    .select('id, user_id')
+    .eq('org_id', meeting.org_id)
+    .eq('member_status', 'ACTIVE')
+
+  console.log('[getMeetingAttendance] Memberships query result:', {
+    count: memberships?.length || 0,
+    error: membersError,
+  })
+
+  if (membersError) {
+    console.error('[getMeetingAttendance] Error fetching memberships:', membersError)
+    return []
+  }
+
+  if (!memberships || memberships.length === 0) {
+    console.log('[getMeetingAttendance] No active members found')
+    return []
+  }
+
+  // Get profiles for these users
+  // PRIVACY: Only select 'id, full_name' per .cursorrules rule 10
+  // email/phone/metadata are forbidden in public/shared contexts
+  const userIds = memberships.map((m: any) => m.user_id)
   const { data: profiles, error: profilesError } = await supabase
     .from('profiles')
     .select('id, full_name')
     .in('id', userIds)
 
+  console.log('[getMeetingAttendance] Profiles query result:', {
+    count: profiles?.length || 0,
+    error: profilesError,
+    profiles: profiles,
+  })
+
   if (profilesError) {
-    console.error('Error fetching profiles:', profilesError)
-    if (profilesError.code === '42501') {
-      authViolation()
-    }
-    operationFailed()
+    console.error('[getMeetingAttendance] Error fetching profiles:', profilesError)
   }
 
-  const profilesMap = new Map((profiles || []).map((p) => [p.id, p.full_name]))
+  const profilesMap = new Map(
+    (profiles || []).map((p: any) => [p.id, p])
+  )
 
-  // Get attendance records
+  // Get attendance records for this meeting (in-person)
   const { data: attendance, error: attendanceError } = await supabase
     .from('meeting_attendance')
-    .select('membership_id, present, mode, joined_at')
+    .select('membership_id, mode, joined_at, present')
     .eq('meeting_id', meetingId)
 
   if (attendanceError) {
-    console.error('Error fetching attendance:', attendanceError)
-    if (attendanceError.code === '42501') {
-      authViolation()
-    }
-    operationFailed()
+    console.error('[getMeetingAttendance] Error fetching attendance:', attendanceError)
+  } else {
+    console.log('[getMeetingAttendance] Attendance records:', attendance)
   }
 
-  const attendanceMap = new Map(
-    (attendance || []).map((a) => [
-      a.membership_id,
-      {
-        present: a.present,
-        mode: a.mode,
-        joined_at: a.joined_at,
-      },
-    ])
-  )
-
-  // Get remote voters
+  // Get remote voters from view
   const { data: remoteVoters, error: remoteError } = await supabase
     .from('meeting_remote_voters')
     .select('membership_id')
@@ -258,66 +232,132 @@ export async function getMeetingAttendance(
 
   if (remoteError) {
     console.error('Error fetching remote voters:', remoteError)
-    // Don't fail, just continue without remote voters info
   }
 
-  const remoteVotersSet = new Set((remoteVoters || []).map((rv) => rv.membership_id))
+  const attendanceMap = new Map(
+    (attendance || []).map((a: any) => [a.membership_id, a])
+  )
+  
+  const remoteVotersSet = new Set(
+    (remoteVoters || []).map((rv: any) => rv.membership_id)
+  )
 
-  // Combine data
-  return memberships.map((membership) => {
-    const attendanceData = attendanceMap.get(membership.id)
-    const votedRemotely = remoteVotersSet.has(membership.id)
-
+  const result = (memberships || []).map((m: any) => {
+    const att = attendanceMap.get(m.id)
+    const isRemoteVoter = remoteVotersSet.has(m.id)
+    const profile = profilesMap.get(m.user_id)
+    
+    // Determine attendance type
+    let attendanceType: 'IN_PERSON' | 'REMOTE' | null = null
+    if (att?.mode) {
+      attendanceType = att.mode
+    } else if (isRemoteVoter) {
+      attendanceType = 'REMOTE'
+    }
+    
+    console.log('[getMeetingAttendance] Mapping member:', {
+      membership_id: m.id,
+      user_id: m.user_id,
+      has_profile: !!profile,
+      profile_name: profile?.full_name,
+      is_remote_voter: isRemoteVoter,
+      attendance_type: attendanceType,
+    })
+    
     return {
-      membership_id: membership.id,
-      user_id: membership.user_id,
-      full_name: profilesMap.get(membership.user_id) || null,
-      present: attendanceData?.present || false,
-      mode: attendanceData?.mode || ('IN_PERSON' as const),
-      joined_at: attendanceData?.joined_at || null,
-      voted_remotely: votedRemotely,
+      membership_id: m.id,
+      member_name: profile?.full_name || 'Nenurodytas vardas',
+      // PRIVACY: email removed per .cursorrules rule 10
+      // email/phone/metadata are forbidden in public/shared contexts
+      member_email: null,
+      attendance_type: attendanceType,
+      checked_in_at: att?.joined_at || null,
     }
   })
+  
+  console.log('[getMeetingAttendance] Returning', result.length, 'members')
+  return result
 }
 
 /**
- * Get unique participant counts for a meeting
+ * Register in-person attendance
  */
-export async function getMeetingUniqueParticipants(
-  meetingId: string
-): Promise<MeetingUniqueParticipants> {
+export async function registerInPersonAttendance(
+  meetingId: string,
+  membershipId: string
+): Promise<{
+  success: boolean
+  error?: string
+}> {
   const supabase = await createClient()
   await requireAuth(supabase)
 
-  const { data, error } = await supabase.rpc('get_meeting_unique_participants', {
-    p_meeting_id: meetingId,
-  })
+  // Check if already has remote votes (cannot switch)
+  const { data: remoteVoter } = await supabase
+    .from('meeting_remote_voters')
+    .select('membership_id')
+    .eq('meeting_id', meetingId)
+    .eq('membership_id', membershipId)
+    .maybeSingle()
+
+  if (remoteVoter) {
+    return {
+      success: false,
+      error: 'Narys jau balsavo nuotoliu, negali registruotis gyvu būdu',
+    }
+  }
+
+  // Upsert attendance record
+  const { error } = await supabase
+    .from('meeting_attendance')
+    .upsert({
+      meeting_id: meetingId,
+      membership_id: membershipId,
+      mode: 'IN_PERSON',
+      present: true,
+      joined_at: new Date().toISOString(),
+    }, {
+      onConflict: 'meeting_id,membership_id',
+    })
 
   if (error) {
-    console.error('Error fetching unique participants:', error)
-    if (error.code === '42501') {
-      authViolation()
-    }
+    console.error('Error registering in-person attendance:', error)
     return {
-      remote_participants: 0,
-      live_participants: 0,
-      total_participants: 0,
+      success: false,
+      error: error.message,
     }
   }
 
-  const result = data?.[0]
-  if (!result) {
-    return {
-      remote_participants: 0,
-      live_participants: 0,
-      total_participants: 0,
-    }
-  }
-
-  return {
-    remote_participants: result.remote_participants || 0,
-    live_participants: result.live_participants || 0,
-    total_participants: result.total_participants || 0,
-  }
+  return { success: true }
 }
 
+/**
+ * Unregister in-person attendance
+ */
+export async function unregisterInPersonAttendance(
+  meetingId: string,
+  membershipId: string
+): Promise<{
+  success: boolean
+  error?: string
+}> {
+  const supabase = await createClient()
+  await requireAuth(supabase)
+
+  const { error } = await supabase
+    .from('meeting_attendance')
+    .delete()
+    .eq('meeting_id', meetingId)
+    .eq('membership_id', membershipId)
+    .eq('mode', 'IN_PERSON')
+
+  if (error) {
+    console.error('Error unregistering attendance:', error)
+    return {
+      success: false,
+      error: error.message,
+    }
+  }
+
+  return { success: true }
+}

@@ -4,48 +4,50 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    /* Dizainas pagal asociacija.net gaires v2026-01 – minimalistinis, audit-safe, institutional */
+    --background: 0 0% 100%; /* white */
+    --foreground: 222.2 84% 4.9%; /* gray-900 */
+    --card: 0 0% 100%; /* white */
+    --card-foreground: 222.2 84% 4.9%; /* gray-900 */
+    --popover: 0 0% 100%; /* white */
+    --popover-foreground: 222.2 84% 4.9%; /* gray-900 */
+    --primary: 221.2 83.2% 53.3%; /* blue-600 #2563eb */
+    --primary-foreground: 210 40% 98%; /* white */
+    --secondary: 210 40% 96.1%; /* gray-100 */
+    --secondary-foreground: 222.2 47.4% 11.2%; /* gray-900 */
+    --muted: 210 40% 96.1%; /* gray-100 */
+    --muted-foreground: 215.4 16.3% 46.9%; /* gray-600 */
+    --accent: 210 40% 96.1%; /* gray-100 */
+    --accent-foreground: 222.2 47.4% 11.2%; /* gray-900 */
+    --destructive: 0 84.2% 60.2%; /* red-600 */
+    --destructive-foreground: 210 40% 98%; /* white */
+    --border: 214.3 31.8% 91.4%; /* gray-200 */
+    --input: 214.3 31.8% 91.4%; /* gray-200 */
+    --ring: 221.2 83.2% 53.3%; /* blue-600 */
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    /* Dark mode: gray-900 bg, gray-800 cards, gray-200 text */
+    --background: 222.2 84% 4.9%; /* gray-900 */
+    --foreground: 210 40% 98%; /* gray-100 */
+    --card: 217.2 32.6% 17.5%; /* gray-800 */
+    --card-foreground: 210 40% 98%; /* gray-100 */
+    --popover: 217.2 32.6% 17.5%; /* gray-800 */
+    --popover-foreground: 210 40% 98%; /* gray-100 */
+    --primary: 217.2 91.2% 59.8%; /* blue-500 */
+    --primary-foreground: 222.2 47.4% 11.2%; /* gray-900 */
+    --secondary: 217.2 32.6% 17.5%; /* gray-800 */
+    --secondary-foreground: 210 40% 98%; /* gray-100 */
+    --muted: 217.2 32.6% 17.5%; /* gray-800 */
+    --muted-foreground: 215 20.2% 65.1%; /* gray-400 */
+    --accent: 217.2 32.6% 17.5%; /* gray-800 */
+    --accent-foreground: 210 40% 98%; /* gray-100 */
+    --destructive: 0 62.8% 30.6%; /* red-700 */
+    --destructive-foreground: 210 40% 98%; /* gray-100 */
+    --border: 217.2 32.6% 17.5%; /* gray-800 */
+    --input: 217.2 32.6% 17.5%; /* gray-800 */
+    --ring: 224.3 76.3% 48%; /* blue-500 */
   }
 }
 
@@ -59,9 +61,41 @@
   }
 }
 
-/* WCAG 2.1 AA Compliance - Focus States */
+/* WCAG 2.2+ Compliance - Focus States, Contrast, Keyboard Navigation */
 @layer utilities {
   .focus-visible-ring {
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+  
+  /* Minimum 3:1 contrast for interactive elements */
+  .focus-visible-ring-strong {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+  
+  /* Subtle hover states for institutional design */
+  .hover-subtle {
+    @apply transition-all duration-200 hover:shadow-lg;
+  }
+  
+  /* Card styling - rounded-lg, subtle shadow-md */
+  .card-institutional {
+    @apply rounded-lg shadow-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700;
+  }
+  
+  /* Table styling - striped (zebra), hover rows */
+  .table-institutional {
+    @apply w-full border-collapse;
+  }
+  
+  .table-institutional thead {
+    @apply bg-gray-50 dark:bg-gray-900 sticky top-0;
+  }
+  
+  .table-institutional tbody tr {
+    @apply border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors;
+  }
+  
+  .table-institutional tbody tr:nth-child(even) {
+    @apply bg-gray-50/50 dark:bg-gray-800/50;
   }
 }

@@ -1,15 +1,25 @@
+/**
+ * LEGACY (v17–v18): This component is read-only.
+ * Projects v19.0+ are derived from APPROVED resolutions.
+ */
 "use client"
 
 import { useState, startTransition } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { Plus, FolderKanban } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Plus, FolderKanban, MoreVertical, Eye } from "lucide-react"
 import { PROJECT_STATUS } from "@/app/domain/constants"
 import { ProjectStatus } from "@/app/domain/types"
 import Image from "next/image"
@@ -59,8 +69,7 @@ export function ProjectsListClient({
 
     setIsSubmitting(true)
     try {
-      // Pass org_id instead of membership_id (server resolves membership internally)
-      const result = await createProject(orgId, projectTitle.trim())
+      const result = await createProject(membershipId, projectTitle.trim())
       
       if (result.success) {
         toast({
@@ -211,36 +220,55 @@ export function ProjectsListClient({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="border rounded-lg divide-y bg-white">
           {filteredProjects.map((project) => (
-            <Link
+            <div
               key={project.id}
-              href={`/dashboard/${orgSlug}/projects/${project.id}`}
-              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+              className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
             >
-              <Card className="h-full hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-lg">{project.title}</CardTitle>
-                    <Badge variant={getStatusBadgeVariant(project.status)}>
+              <Link
+                href={`/dashboard/${orgSlug}/projects/${project.id}`}
+                className="flex items-center gap-4 flex-1 min-w-0"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3">
+                    <h4 className="font-medium text-slate-900 truncate">
+                      {project.title}
+                    </h4>
+                    <Badge variant={getStatusBadgeVariant(project.status)} className="shrink-0">
                       {project.status}
                     </Badge>
                   </div>
                   {project.description && (
-                    <CardDescription className="line-clamp-2">
+                    <p className="text-sm text-slate-600 mt-1 line-clamp-2">
                       {project.description}
-                    </CardDescription>
+                    </p>
                   )}
-                </CardHeader>
-                <CardContent>
                   {project.budget_eur !== null && project.budget_eur > 0 && (
-                    <p className="text-sm font-medium text-slate-900">
+                    <p className="text-sm font-medium text-slate-900 mt-1">
                       Biudžetas: {project.budget_eur.toFixed(2)} €
                     </p>
                   )}
-                </CardContent>
-              </Card>
-            </Link>
+                </div>
+              </Link>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <MoreVertical className="h-4 w-4" />
+                    <span className="sr-only">Atidaryti meniu</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href={`/dashboard/${orgSlug}/projects/${project.id}`}>
+                      <Eye className="h-4 w-4 mr-2" />
+                      Peržiūrėti
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           ))}
         </div>
       )}

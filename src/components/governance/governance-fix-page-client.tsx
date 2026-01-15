@@ -11,9 +11,11 @@ import { Loader2, CheckCircle2, XCircle, AlertTriangle, ArrowLeft } from 'lucide
 import {
   validateOrgCompliance,
   markOrgComplianceOk,
-  type ComplianceValidation,
-  type ComplianceIssue,
 } from '@/app/actions/governance-compliance'
+import type {
+  ComplianceValidation,
+  ComplianceIssue,
+} from '@/app/actions/governance-compliance-types'
 import { getActiveGovernanceQuestions, type GovernanceQuestion } from '@/app/actions/governance-questions'
 import { GovernanceStep } from '@/components/onboarding/governance-step'
 // Note: Governance form is available via governance page
@@ -354,22 +356,83 @@ export function GovernanceFixPageClient({
 
         {/* Governance Form - Show if there are issues to fix */}
         {validation && (validation.status === 'INVALID' || validation.status === 'NEEDS_UPDATE') && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Pataisyti nustatymus</CardTitle>
-              <CardDescription>
-                Užpildykite trūkstamus arba pataisykite netinkamus atsakymus
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <GovernanceStep
-                key={formKey}
-                orgId={orgId}
-                onComplete={handleGovernanceComplete}
-                allowUpdateForActive={true}
-              />
-            </CardContent>
-          </Card>
+          <>
+            {/* Show form only if there are actual missing or invalid answers */}
+            {(validation.missing_required?.length > 0 || validation.invalid_types?.length > 0) ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Pataisyti nustatymus</CardTitle>
+                  <CardDescription>
+                    Užpildykite trūkstamus arba pataisykite netinkamus atsakymus
+                    {validation.missing_required?.length > 0 && (
+                      <span className="block mt-1 text-sm text-amber-600">
+                        Trūksta: {validation.missing_required.length} klausimų
+                      </span>
+                    )}
+                    {validation.invalid_types?.length > 0 && (
+                      <span className="block mt-1 text-sm text-amber-600">
+                        Neteisingi: {validation.invalid_types.length} klausimai
+                      </span>
+                    )}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <GovernanceStep
+                    key={formKey}
+                    orgId={orgId}
+                    onComplete={handleGovernanceComplete}
+                    allowUpdateForActive={true}
+                    validation={validation}
+                  />
+                </CardContent>
+              </Card>
+            ) : (
+              /* If only version mismatch, show acknowledgment option */
+              validation.details.version_mismatch && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Nustatymai teisingi</CardTitle>
+                    <CardDescription>
+                      Visi atsakymai yra teisingi. Reikia tik patvirtinti, kad peržiūrėjote nustatymus po schema versijos atnaujinimo.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <Alert>
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        <AlertTitle>Viskas gerai</AlertTitle>
+                        <AlertDescription>
+                          Jūsų nustatymai atitinka visus reikalavimus. Nėra ką keisti.
+                        </AlertDescription>
+                      </Alert>
+                      <div className="flex gap-3">
+                        <Button
+                          onClick={handleMarkOk}
+                          disabled={fixing}
+                          className="flex-1"
+                        >
+                          {fixing ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Pažymima...
+                            </>
+                          ) : (
+                            'Patvirtinti, kad peržiūrėjau nustatymus'
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => router.push(`/dashboard/${orgSlug}`)}
+                        >
+                          Grįžti į dashboard
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            )}
+          </>
         )}
 
         {/* Actions */}

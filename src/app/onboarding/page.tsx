@@ -1,11 +1,10 @@
 import { redirect } from 'next/navigation'
 import { getOnboardingStatus } from '@/app/actions/onboarding-status'
 import { OnboardingWizard } from '@/components/onboarding/onboarding-wizard'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 /**
  * Chairman Onboarding Page (B3.2)
- * 
+ *
  * 3-step wizard to complete governance and consents before activation.
  * Only accessible to OWNER/Chairman when org is not ACTIVE.
  */
@@ -20,27 +19,22 @@ export default async function OnboardingPage() {
     orgStatus: status?.activationStatus?.status,
   })
 
-  // If no onboarding needed (already active or not OWNER), redirect to dashboard
-  // CRITICAL: Add error handling to prevent redirect loops
   if (!status || status.currentStep === null) {
     console.log('ONBOARDING_REDIRECT: No onboarding needed, redirecting to dashboard', {
       hasStatus: !!status,
       currentStep: status?.currentStep,
       isActive: status?.activationStatus?.isActive,
     })
-    
+
     try {
-      // Get user's first org slug for redirect
       const { getUserOrgs } = await import('@/app/actions/organizations')
       const orgs = await getUserOrgs()
       if (orgs.length > 0 && orgs[0]?.slug) {
         redirect(`/dashboard/${orgs[0].slug}`)
       } else {
-        // Fallback: redirect to landing page if no orgs found
         redirect('/')
       }
     } catch (error) {
-      // If error getting orgs, redirect to landing page to prevent loop
       console.error('ONBOARDING_REDIRECT_ERROR: Failed to get user orgs, redirecting to landing page', error)
       redirect('/')
     }

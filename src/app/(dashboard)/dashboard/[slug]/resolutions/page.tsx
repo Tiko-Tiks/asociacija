@@ -34,6 +34,7 @@ async function ResolutionsPageContent({ slug }: { slug: string }) {
     <ResolutionsClient
       resolutions={resolutions}
       orgId={selectedOrg.id}
+      orgSlug={selectedOrg.slug}
       isOwner={isOwner}
       isBoard={isBoard}
     />

@@ -61,7 +61,8 @@ export async function setVoteLiveTotals(
     }
   }
 
-  revalidatePath('/dashboard', 'layout')
+  // Note: Removed aggressive revalidatePath to prevent page reset during live voting
+  // Parent component handles refresh via state updates
   return {
     ok: result.ok,
     reason: result.reason,

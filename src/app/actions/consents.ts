@@ -17,7 +17,7 @@ import { revalidatePath } from 'next/cache'
  * Consent Management (B3.1.2)
  * 
  * Handles consent acceptance for:
- * - Chairman (FIRST LOGIN): CORE_STATUTES, CHARTER, TERMS, PRIVACY
+ * - Chairman (FIRST LOGIN): CORE_STATUTES (Platformos įstatų), CHARTER, TERMS, PRIVACY
  * - Members: INTERNAL_RULES, CHARTER, TERMS, PRIVACY
  */
 
@@ -152,7 +152,7 @@ export async function acceptConsent(
     console.error('AUDIT INCIDENT: Failed to log CONSENT_ACCEPTED:', auditError)
   }
 
-  // Step 6: Check if all consents accepted AND governance submitted, then send email to CORE
+  // Step 6: Check if all consents accepted AND governance submitted, then send email to Platforma
   try {
     const allConsentsAccepted = await hasAllRequiredConsents(orgId, user.id)
     
@@ -165,7 +165,7 @@ export async function acceptConsent(
         .maybeSingle()
 
       if (governanceConfig) {
-        // Both governance and consents complete - send email to CORE
+        // Both governance and consents complete - send email to Platforma
         const { data: org }: any = await supabase
           .from('orgs')
           .select('name, slug')

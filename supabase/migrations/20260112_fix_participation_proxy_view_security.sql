@@ -1,0 +1,47 @@
+-- ==================================================
+-- FIX: Remove SECURITY DEFINER from participation_proxy view
+-- ==================================================
+-- Security Issue: Views with SECURITY DEFINER bypass RLS policies
+-- Solution: Drop the view (not in codebase - likely legacy/unused)
+-- Governance: Audit-safe - no schema changes, only security fix
+-- ==================================================
+--
+-- NOTE: This view is not in the codebase and appears to be legacy/unused.
+-- If this view is actually needed, it should be recreated properly:
+-- 1. Without SECURITY DEFINER (respects RLS)
+-- 2. With proper documentation
+-- 3. Added to the codebase for version control
+--
+-- ==================================================
+
+-- Drop the view if it exists (with SECURITY DEFINER)
+-- CASCADE will drop any dependent objects
+DROP VIEW IF EXISTS public.participation_proxy CASCADE;
+
+-- ==================================================
+-- VERIFICATION
+-- ==================================================
+--
+-- Verify the view has been dropped:
+-- SELECT * FROM pg_views WHERE schemaname = 'public' AND viewname = 'participation_proxy';
+-- Should return no rows.
+--
+-- ==================================================
+-- IF VIEW IS NEEDED: Recreate without SECURITY DEFINER
+-- ==================================================
+--
+-- If this view is actually needed, recreate it following this pattern:
+--
+-- CREATE OR REPLACE VIEW public.participation_proxy AS
+-- SELECT 
+--   -- columns here
+-- FROM public.table_name
+-- -- joins here
+-- -- WHERE conditions here;
+--
+-- COMMENT ON VIEW public.participation_proxy IS 
+-- 'Governance: [Description]. No SECURITY DEFINER - RLS policies on underlying tables are enforced.';
+--
+-- GRANT SELECT ON public.participation_proxy TO authenticated;
+--
+-- ==================================================

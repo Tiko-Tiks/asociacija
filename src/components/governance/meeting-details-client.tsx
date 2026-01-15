@@ -8,8 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Calendar, Users, Upload, FileText } from "lucide-react"
 import { markAttendance, createProtocol } from "@/app/actions/governance"
 import { useToast } from "@/components/ui/use-toast"
-import { format } from "date-fns"
-import { lt } from "date-fns/locale"
+import { formatDateLT } from "@/lib/utils"
 import { Checkbox } from "@/components/ui/checkbox"
 import { createClient } from "@/lib/supabase/client"
 import { ERROR_CODE } from "@/app/domain/constants"
@@ -189,7 +188,7 @@ export function MeetingDetailsClient({
               <CardTitle>{initialMeeting.title}</CardTitle>
               <CardDescription className="mt-2 flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
-                {format(new Date(initialMeeting.scheduled_at), 'PPpp', { locale: lt })}
+                {format(new Date(initialMeeting.scheduled_at), 'yyyy-MM-dd HH:mm', { locale: lt })}
               </CardDescription>
             </div>
             {/* Quorum status hidden in pilot - protocol is source of truth */}
@@ -310,7 +309,7 @@ export function MeetingDetailsClient({
                           Protokolas
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {format(new Date(protocol.created_at), 'PPpp', { locale: lt })}
+                          {formatDateLT(protocol.created_at, 'datetime')}
                         </p>
                       </div>
                     </div>
@@ -355,7 +354,7 @@ export function MeetingDetailsClient({
                         Protokolas
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(protocol.created_at), 'PPpp', { locale: lt })}
+                        {formatDateLT(protocol.created_at, 'datetime')}
                       </p>
                     </div>
                   </div>

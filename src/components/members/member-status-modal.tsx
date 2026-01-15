@@ -102,7 +102,7 @@ export function MemberStatusModal({
       case 'SUSPENDED':
         return 'Sustabdytas'
       case 'LEFT':
-        return 'Išėjęs'
+        return 'Uždarytas'
       default:
         return status
     }

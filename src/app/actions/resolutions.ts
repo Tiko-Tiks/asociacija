@@ -7,6 +7,10 @@ import { MEMBERSHIP_ROLE, MEMBERSHIP_STATUS, RESOLUTION_STATUS, RESOLUTION_VISIB
 import { canPublish } from '@/app/domain/guards/canPublish'
 import { requireOrgActive } from '@/app/domain/guards/orgActivation'
 import { revalidatePath } from 'next/cache'
+import { 
+  requireValidResolutionTransition,
+  isImmutableResolution 
+} from '@/app/domain/state-machines/resolution'
 
 export type ResolutionStatus = typeof RESOLUTION_STATUS[keyof typeof RESOLUTION_STATUS]
 export type ResolutionVisibility = typeof RESOLUTION_VISIBILITY[keyof typeof RESOLUTION_VISIBILITY]
@@ -84,6 +88,51 @@ export async function listResolutions(org_id: string): Promise<Resolution[]> {
     }
     console.error('Error fetching resolutions:', error)
     operationFailed()
+  }
+
+  return (resolutions || []).map((r: any) => ({
+    id: r.id,
+    org_id: r.org_id,
+    title: r.title,
+    content: r.content,
+    status: r.status,
+    visibility: r.visibility,
+    adopted_at: r.adopted_at,
+    adopted_by: r.adopted_by,
+    recommended_at: r.recommended_at || null,
+    recommended_by: r.recommended_by || null,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+  }))
+}
+
+/**
+ * Get DRAFT resolutions without assigned meeting
+ * 
+ * These are resolutions that can be added to a meeting agenda.
+ * Includes resolutions created from ideas (template.type = from_idea)
+ * 
+ * @param org_id - Organization ID
+ * @returns Array of draft resolutions without meeting
+ */
+export async function getDraftResolutionsWithoutMeeting(org_id: string): Promise<Resolution[]> {
+  const supabase = await createClient()
+  await requireAuth(supabase)
+
+  const { data: resolutions, error }: any = await supabase
+    .from('resolutions')
+    .select('*')
+    .eq('org_id', org_id)
+    .eq('status', 'DRAFT')
+    .is('meeting_id', null)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    if (error?.code === '42501') {
+      authViolation()
+    }
+    console.error('Error fetching draft resolutions:', error)
+    return []
   }
 
   return (resolutions || []).map((r: any) => ({
@@ -378,6 +427,20 @@ export async function approveResolution(
     return { success: false, error: 'Sprendimas nerastas' }
   }
 
+  // GOVERNANCE COMPLIANCE: Validate status transition (approve)
+  try {
+    requireValidResolutionTransition(
+      currentResolution.status,
+      RESOLUTION_STATUS.APPROVED
+    )
+  } catch (error: any) {
+    console.error('Invalid resolution transition (approve):', error)
+    return { 
+      success: false, 
+      error: error.message || 'Netinkamas statuso perėjimas. Tik PROPOSED nutarimai gali būti patvirtinti.' 
+    }
+  }
+
   // Update resolution
   const adoptedAt = new Date().toISOString()
   const { data: updatedResolution, error: updateError }: any = await supabase
@@ -495,6 +558,20 @@ export async function rejectResolution(
 
   if (!currentResolution) {
     return { success: false, error: 'Sprendimas nerastas' }
+  }
+
+  // GOVERNANCE COMPLIANCE: Validate status transition (reject)
+  try {
+    requireValidResolutionTransition(
+      currentResolution.status,
+      RESOLUTION_STATUS.REJECTED
+    )
+  } catch (error: any) {
+    console.error('Invalid resolution transition (reject):', error)
+    return { 
+      success: false, 
+      error: error.message || 'Netinkamas statuso perėjimas. Tik PROPOSED nutarimai gali būti atmesti.' 
+    }
   }
 
   // Update resolution

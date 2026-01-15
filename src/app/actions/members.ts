@@ -35,6 +35,7 @@ export async function listOrganizationMembers(
     status: MembershipStatus
     member_status: string
     created_at: string
+    metadata?: any
   }>
 > {
   // Get authenticated Supabase client (respects RLS, uses auth.uid())
@@ -45,12 +46,13 @@ export async function listOrganizationMembers(
 
   // Step 2: Get user's membership to derive org_id
   // RLS will enforce user can only see their own membership
+  // NOTE: v19.0 schema - use member_status (not status)
   const { data: currentMembership, error: membershipError }: any = await supabase
     .from('memberships')
-    .select('org_id, status')
+    .select('org_id, member_status')
     .eq('id', membership_id)
     .eq('user_id', user.id)
-    .eq('status', MEMBERSHIP_STATUS.ACTIVE)
+    .in('member_status', [MEMBERSHIP_STATUS.ACTIVE, MEMBERSHIP_STATUS.PENDING])
     .single()
 
   if (membershipError || !currentMembership) {
@@ -64,10 +66,10 @@ export async function listOrganizationMembers(
 
   // Step 3: Query all memberships for this org
   // RLS on memberships will enforce user can only see members of their org
-  // Include member_status from schema v17.0
+  // NOTE: v19.0 schema - metadata column does NOT exist in memberships table
   const { data: memberships, error: membershipsError }: any = await supabase
     .from('memberships')
-    .select('id, user_id, role, status, member_status, joined_at')
+    .select('id, user_id, role, member_status, joined_at')
     .eq('org_id', currentMembership.org_id)
     .order('joined_at', { ascending: false })
 
@@ -85,11 +87,13 @@ export async function listOrganizationMembers(
   }
 
   // Step 4: Query profiles for all user_ids
-  // OWNER can see full_name and email (from auth.users); others see only full_name
+  // OWNER can see full_name and email; others see only full_name
   const userIds = memberships.map((m: any) => m.user_id)
+  // NOTE: profiles.email yra prieinamas per RLS, jei OWNER
+  const profilesSelect = isOwner ? 'id, full_name, email' : 'id, full_name'
   const { data: profiles, error: profilesError }: any = await supabase
     .from('profiles')
-    .select('id, full_name')
+    .select(profilesSelect)
     .in('id', userIds)
 
   if (profilesError) {
@@ -101,12 +105,8 @@ export async function listOrganizationMembers(
     operationFailed()
   }
 
-  // Step 5: If OWNER, fetch emails from auth.users via RPC
-  // Note: We'll need to get emails separately as profiles.email doesn't exist
-  // For now, we'll return null for email and can enhance later with RPC if needed
-  const emailsMap = new Map<string, string>()
-
   // Step 6: Combine memberships with profiles and split full_name
+  // NOTE: email gali būti gaunamas iš profiles lentelės, jei OWNER (per RLS)
   const profilesMap = new Map(
     (profiles || []).map((p: any) => {
       // Split full_name into first_name and last_name
@@ -129,13 +129,14 @@ export async function listOrganizationMembers(
           full_name: p.full_name || null,
           first_name: first_name,
           last_name: last_name,
-          email: emailsMap.get(p.id) || null,
+          // OWNER gali matyti email iš profiles lentelės (per RLS)
+          email: isOwner ? (p.email || null) : null,
         }
       ]
     })
   )
 
-  return memberships.map((membership: any) => {
+  const result = memberships.map((membership: any) => {
     const profile = profilesMap.get(membership.user_id) || {
       full_name: null,
       first_name: null,
@@ -143,18 +144,27 @@ export async function listOrganizationMembers(
       email: null,
     }
     
-    return {
+    const memberData = {
       id: membership.id,
       user_id: membership.user_id, // Include user_id for positions lookup
       full_name: profile.full_name,
-      first_name: isOwner ? profile.first_name : null,
-      last_name: isOwner ? profile.last_name : null,
-      email: isOwner ? profile.email : null,
+      // NOTE: first_name ir last_name visada grąžinami (išskleidžiami iš full_name)
+      // Tai leidžia komponentui rodyti vardą/pavardę net jei full_name yra null
+      // OWNER gali matyti išskleidžiamus duomenis, bet visi gali matyti full_name
+      first_name: profile.first_name, // Visada grąžinamas (ne tik OWNER)
+      last_name: profile.last_name, // Visada grąžinamas (ne tik OWNER)
+      // OWNER gali matyti email iš profiles lentelės (per RLS)
+      email: profile.email || null,
       role: membership.role || '',
-      status: membership.status as MembershipStatus,
-      member_status: membership.member_status || 'PENDING', // member_status from schema v17.0
+      status: membership.member_status as MembershipStatus, // Use member_status as status (v19.0 schema)
+      member_status: membership.member_status || 'PENDING',
       created_at: membership.joined_at, // Using joined_at from DB, but keeping created_at name for API compatibility
+      metadata: null, // NOTE: v19.0 schema - metadata column does NOT exist in memberships table
     }
+    
+    return memberData
   })
+  
+  return result
 }
 

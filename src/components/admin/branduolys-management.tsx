@@ -72,8 +72,8 @@ export function BranduolysManagement() {
       }
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to load data',
+        title: 'Klaida',
+        description: 'Nepavyko įkelti duomenų',
         variant: 'destructive',
       })
     } finally {
@@ -93,8 +93,8 @@ export function BranduolysManagement() {
 
       if (result.success) {
         toast({
-          title: 'Success',
-          description: 'Branduolys organization updated',
+          title: 'Sėkmė',
+          description: 'Branduolys organizacija atnaujinta',
         })
         // Reload data to show updated content
         await loadData()
@@ -156,10 +156,10 @@ export function BranduolysManagement() {
       <div>
         <h2 className="text-xl font-semibold text-slate-100 flex items-center gap-2">
           <Building2 className="h-5 w-5" />
-          Branduolys Management
+          Branduolys valdymas
         </h2>
         <p className="text-sm text-slate-400 mt-1">
-          Manage branduolys organization and website content
+          Valdyti Branduolys organizaciją ir svetainės turinį
         </p>
       </div>
 
@@ -167,11 +167,11 @@ export function BranduolysManagement() {
         <TabsList className="bg-slate-900 border border-slate-800">
           <TabsTrigger value="organization" className="data-[state=active]:bg-slate-800">
             <Building2 className="h-4 w-4 mr-2" />
-            Organization
+            Organizacija
           </TabsTrigger>
           <TabsTrigger value="website" className="data-[state=active]:bg-slate-800">
             <Globe className="h-4 w-4 mr-2" />
-            Website Content
+            Svetainės turinys
           </TabsTrigger>
         </TabsList>
 
@@ -179,9 +179,9 @@ export function BranduolysManagement() {
         <TabsContent value="organization" className="space-y-6">
           <Card className="bg-slate-900 border-slate-800">
             <CardHeader>
-              <CardTitle className="text-slate-100">Branduolys Organization</CardTitle>
+              <CardTitle className="text-slate-100">Branduolys organizacija</CardTitle>
               <p className="text-sm text-slate-400 mt-1">
-                Manage branduolys organization information
+                Valdyti Branduolys organizacijos informaciją
               </p>
             </CardHeader>
             <CardContent>
@@ -189,7 +189,7 @@ export function BranduolysManagement() {
                 <form onSubmit={handleOrgUpdate} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="org-name" className="text-slate-300">
-                      Organization Name
+                      Organizacijos pavadinimas
                     </Label>
                     <Input
                       id="org-name"
@@ -204,7 +204,7 @@ export function BranduolysManagement() {
 
                   <div className="space-y-2">
                     <Label htmlFor="org-description" className="text-slate-300">
-                      Description
+                      Aprašymas
                     </Label>
                     <Textarea
                       id="org-description"
@@ -229,11 +229,11 @@ export function BranduolysManagement() {
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     {loading ? (
-                      'Saving...'
+                      'Išsaugoma...'
                     ) : (
                       <>
                         <Save className="h-4 w-4 mr-2" />
-                        Save Changes
+                        Išsaugoti pakeitimus
                       </>
                     )}
                   </Button>

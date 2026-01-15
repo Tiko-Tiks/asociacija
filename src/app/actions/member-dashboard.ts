@@ -9,6 +9,7 @@ export interface MemberDashboardData {
   // User identity
   userName: string | null
   memberStatus: string
+  memberMetadata?: any // Include metadata for status hints
   position: string | null
   orgName: string
   orgSlug: string
@@ -70,12 +71,14 @@ export async function getMemberDashboardData(orgId: string): Promise<MemberDashb
   const user = await requireAuth(supabase)
 
   // Step 1: Get user's membership and profile
+  // NOTE: v19.0 schema - metadata column does NOT exist in memberships table
+  // Allow both ACTIVE and PENDING memberships so users can see dashboard while waiting for approval
   const { data: membership, error: membershipError }: any = await supabase
     .from('memberships')
-    .select('id, user_id, member_status, status')
+    .select('id, user_id, member_status')
     .eq('user_id', user.id)
     .eq('org_id', orgId)
-    .eq('status', MEMBERSHIP_STATUS.ACTIVE)
+    .in('member_status', [MEMBERSHIP_STATUS.ACTIVE, MEMBERSHIP_STATUS.PENDING])
     .maybeSingle()
 
   if (membershipError) {
@@ -229,6 +232,7 @@ export async function getMemberDashboardData(orgId: string): Promise<MemberDashb
   return {
     userName: profileResult.data?.full_name || null,
     memberStatus: membership.member_status || 'ACTIVE',
+    memberMetadata: null, // NOTE: v19.0 schema - metadata column does NOT exist in memberships table
     position: positionResult.data?.title || null,
     orgName,
     orgSlug,

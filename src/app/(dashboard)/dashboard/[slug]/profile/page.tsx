@@ -4,12 +4,11 @@ import { getCurrentUser } from '@/app/actions/auth'
 import { getUserOrgs } from '@/app/actions/organizations'
 import { getMemberProfile } from '@/app/actions/member-profile'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Edit, User, Mail, Calendar, Shield } from 'lucide-react'
-import Link from 'next/link'
+import { Mail, Calendar, Shield, ArrowLeft, User } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { MEMBERSHIP_ROLE } from '@/app/domain/constants'
-import { ProfileEditForm } from '@/components/profile/profile-edit-form'
+import Link from 'next/link'
 
 export async function generateMetadata({
   params,
@@ -56,48 +55,46 @@ export default async function ProfilePage({
 
   return (
     <div className="space-y-6 p-6">
+      {/* Header with name and back button */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Mano profilis</h1>
-          <p className="text-slate-600 mt-1">
-            Asmeninė informacija ir narystės statusas
-          </p>
+        <div className="flex items-center gap-4">
+          <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
+            <User className="h-8 w-8 text-blue-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {profileData.full_name || 'Nenurodyta'}
+            </h1>
+            <p className="text-gray-600">
+              {user.email}
+            </p>
+          </div>
         </div>
+        <Button variant="outline" asChild>
+          <Link href={`/dashboard/${normalizedSlug}`}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Grįžti
+          </Link>
+        </Button>
       </div>
 
-      {/* Profile Edit Form */}
-      <ProfileEditForm
-        initialData={{
-          first_name: profileData.first_name,
-          last_name: profileData.last_name,
-          full_name: profileData.full_name,
-        }}
-        orgSlug={normalizedSlug}
-      />
-
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Personal Information */}
+        {/* Contact Information */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Asmeninė informacija
+              <Mail className="h-5 w-5" />
+              Kontaktinė informacija
             </CardTitle>
             <CardDescription>
-              Jūsų profilio duomenys
+              El. pašto adresas susietas su paskyra
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
             <div>
-              <label className="text-sm font-medium text-slate-500">Vardas, pavardė</label>
-              <p className="text-lg text-slate-900 mt-1">
-                {profileData.full_name || 'Nenurodyta'}
-              </p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-500">El. paštas</label>
-              <p className="text-lg text-slate-900 mt-1 flex items-center gap-2">
-                <Mail className="h-4 w-4 text-slate-400" />
+              <label className="text-sm font-medium text-gray-500">El. paštas</label>
+              <p className="text-lg text-gray-900 mt-1 flex items-center gap-2">
+                <Mail className="h-4 w-4 text-gray-400" />
                 {user.email || 'Nenurodyta'}
               </p>
             </div>
@@ -117,7 +114,7 @@ export default async function ProfilePage({
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-slate-500">Rolė</label>
+              <label className="text-sm font-medium text-gray-500">Rolė</label>
               <div className="mt-1">
                 <Badge 
                   variant={profileData.role === MEMBERSHIP_ROLE.OWNER ? 'default' : 'secondary'}
@@ -128,7 +125,7 @@ export default async function ProfilePage({
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-500">Statusas</label>
+              <label className="text-sm font-medium text-gray-500">Statusas</label>
               <div className="mt-1">
                 <Badge 
                   variant={profileData.member_status === 'ACTIVE' ? 'default' : 'secondary'}
@@ -139,9 +136,9 @@ export default async function ProfilePage({
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-500">Prisijungimo data</label>
-              <p className="text-lg text-slate-900 mt-1 flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-slate-400" />
+              <label className="text-sm font-medium text-gray-500">Prisijungimo data</label>
+              <p className="text-lg text-gray-900 mt-1 flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-gray-400" />
                 {profileData.joined_at 
                   ? new Date(profileData.joined_at).toLocaleDateString('lt-LT')
                   : 'Nenurodyta'}

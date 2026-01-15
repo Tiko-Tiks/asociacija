@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { requireAuth, loadActiveMembership } from './_guards'
+import { requireAuth } from './_guards'
 import { authViolation, operationFailed } from '@/app/domain/errors'
 import { MEMBERSHIP_STATUS } from '@/app/domain/constants'
 
@@ -31,7 +31,25 @@ export async function getMemberProfile(
   const user = await requireAuth(supabase)
   
   // Get user's membership
-  const membership = await loadActiveMembership(supabase, membership_id, user.id)
+  // CRITICAL: Allow PENDING memberships so users can view/update profile even with pending status
+  // Use direct query instead of loadActiveMembership which requires ACTIVE status
+  const { data: membership, error: membershipError }: any = await supabase
+    .from('memberships')
+    .select('org_id, member_status, user_id, role, joined_at')
+    .eq('id', membership_id)
+    .single()
+  
+  if (membershipError || !membership) {
+    if (membershipError?.code === '42501') {
+      authViolation()
+    }
+    operationFailed('Membership not found')
+  }
+  
+  // Validate that the authenticated user owns this membership
+  if (membership.user_id !== user.id) {
+    operationFailed('Unauthorized')
+  }
 
   // Get profile information
   const { data: profile, error: profileError }: any = await supabase

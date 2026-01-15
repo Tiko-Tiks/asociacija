@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 export interface GovernanceQuestion {
   question_key: string
   question_text: string
-  question_type: 'radio' | 'checkbox' | 'text' | 'number'
+  question_type: 'radio' | 'checkbox' | 'text' | 'number' | 'date'
   section: string
   section_order: number
   is_required: boolean

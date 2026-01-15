@@ -12,10 +12,33 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { CheckCircle2, FileText, AlertCircle, User, Loader2, Edit2, Save, X } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { CheckCircle2, FileText, AlertCircle, User, Loader2, Edit2, Save, X, MoreVertical, Trash2, Users } from 'lucide-react'
 import type { OrgAdminView } from '@/app/actions/admin/manage-orgs'
 import { activateOrganizationAdmin, suspendOrganization } from '@/app/actions/admin/manage-orgs'
 import { updateOrganizationAdmin } from '@/app/actions/admin/update-org'
+import {
+  getOrgMembersAdmin,
+  updateMemberStatusAdmin,
+  deleteMemberAdmin,
+  type AdminMemberView,
+} from '@/app/actions/admin/manage-members'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/ui/use-toast'
 
@@ -63,6 +86,10 @@ export function OrgDetailsModal({ org, isOpen, onClose, onUpdate }: OrgDetailsMo
     slug: '',
     status: '',
   })
+  const [members, setMembers] = useState<AdminMemberView[]>([])
+  const [loadingMembers, setLoadingMembers] = useState(false)
+  const [showMembers, setShowMembers] = useState(false)
+  const [memberToDelete, setMemberToDelete] = useState<AdminMemberView | null>(null)
 
   // Initialize editData when org changes
   useEffect(() => {
@@ -72,8 +99,104 @@ export function OrgDetailsModal({ org, isOpen, onClose, onUpdate }: OrgDetailsMo
         slug: org.slug,
         status: org.status || '',
       })
+      // Reset members when org changes
+      setMembers([])
+      setShowMembers(false)
     }
   }, [org])
+
+  const loadMembers = async () => {
+    if (!org) return
+    setLoadingMembers(true)
+    try {
+      const orgMembers = await getOrgMembersAdmin(org.id)
+      setMembers(orgMembers)
+    } catch (error) {
+      console.error('Error loading members:', error)
+      toast({
+        title: 'Klaida',
+        description: 'Nepavyko užkrauti narių sąrašo',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingMembers(false)
+    }
+  }
+
+  // Load members when showing members section
+  useEffect(() => {
+    if (showMembers && org && !loadingMembers) {
+      // Only load if we don't have members yet or org changed
+      if (members.length === 0 || members[0]?.org_id !== org.id) {
+        loadMembers()
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showMembers, org?.id])
+
+  const handleMemberStatusChange = async (member: AdminMemberView, newStatus: string) => {
+    setLoading(true)
+    try {
+      const result = await updateMemberStatusAdmin(member.id, newStatus)
+      if (result.success) {
+        toast({
+          title: 'Sėkmė',
+          description: 'Nario statusas sėkmingai atnaujintas',
+        })
+        // Reload members
+        await loadMembers()
+        onUpdate?.()
+      } else {
+        toast({
+          title: 'Klaida',
+          description: result.error || 'Nepavyko atnaujinti nario statuso',
+          variant: 'destructive',
+        })
+      }
+    } catch (error) {
+      console.error('Error updating member status:', error)
+      toast({
+        title: 'Klaida',
+        description: 'Įvyko netikėta klaida',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteMember = async () => {
+    if (!memberToDelete) return
+    setLoading(true)
+    try {
+      const result = await deleteMemberAdmin(memberToDelete.id)
+      if (result.success) {
+        toast({
+          title: 'Sėkmė',
+          description: 'Narys sėkmingai pašalintas',
+        })
+        setMemberToDelete(null)
+        // Reload members
+        await loadMembers()
+        onUpdate?.()
+      } else {
+        toast({
+          title: 'Klaida',
+          description: result.error || 'Nepavyko pašalinti nario',
+          variant: 'destructive',
+        })
+      }
+    } catch (error) {
+      console.error('Error deleting member:', error)
+      toast({
+        title: 'Klaida',
+        description: 'Įvyko netikėta klaida',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleEdit = () => {
     if (!org) return
@@ -349,7 +472,25 @@ export function OrgDetailsModal({ org, isOpen, onClose, onUpdate }: OrgDetailsMo
                   </div>
                   <div>
                     <span className="text-slate-400">Narių skaičius:</span>
-                    <p className="text-slate-100 mt-1">{org.memberCount}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-slate-100">{org.memberCount}</p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const newShowMembers = !showMembers
+                          setShowMembers(newShowMembers)
+                          // Load members immediately when button is clicked
+                          if (newShowMembers && org && !loadingMembers) {
+                            loadMembers()
+                          }
+                        }}
+                        className="h-6 px-2 text-xs text-slate-400 hover:text-slate-100"
+                      >
+                        <Users className="h-3 w-3 mr-1" />
+                        {showMembers ? 'Slėpti' : 'Rodyti narius'}
+                      </Button>
+                    </div>
                   </div>
                   <div>
                     <span className="text-slate-400">Pirmininkas:</span>
@@ -385,24 +526,127 @@ export function OrgDetailsModal({ org, isOpen, onClose, onUpdate }: OrgDetailsMo
                 <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
                   <div className="space-y-3">
                     {Object.entries(org.governanceAnswers).map(([key, value]) => {
-                      // Format key to readable label
-                      const label = key
+                      // Governance config field translations
+                      const fieldTranslations: Record<string, string> = {
+                        has_board: 'Turi valdybą',
+                        track_fees: 'Sekti mokesčius',
+                        has_auditor: 'Turi auditorių',
+                        early_voting: 'Ankstyvas balsavimas',
+                        abstain_handling: 'Susilaikymo tvarkymas',
+                        restrict_debtors: 'Apriboti skolininkus',
+                        ga_quorum_percent: 'GA kvorumo procentas',
+                        is_social_business: 'Yra socialinis verslas',
+                        idea_public_default: 'Idėjos pagal nutylėjimą viešos',
+                        meeting_notice_days: 'Susirinkimo pranešimo dienos',
+                        new_member_approval: 'Naujo nario patvirtinimas',
+                        one_member_one_vote: 'Vienas narys - vienas balsas',
+                        agenda_public_summary: 'Darbotvarkės viešas santrauka',
+                        ga_repeat_notice_days: 'GA pakartotinio pranešimo dienos',
+                        board_quorum_percentage: 'Valdybos kvorumo procentas',
+                        idea_vote_duration_days: 'Idėjos balsavimo trukmės dienos',
+                        chairman_term_start_date: 'Pirmininko kadencijos pradžios data',
+                        ga_repeat_quorum_percent: 'GA pakartotinio kvorumo procentas',
+                        live_voting_capture_mode: 'Tiesioginio balsavimo fiksavimo režimas',
+                        protocol_signed_required: 'Reikalingas protokolo parašas',
+                        remote_vote_freeze_hours: 'Nuotolinio balsavimo užšaldymo valandos',
+                        expense_approval_required: 'Reikalingas išlaidų patvirtinimas',
+                        ga_repeat_meeting_allowed: 'GA pakartotinis susirinkimas leidžiamas',
+                        meeting_chair_is_org_chair: 'Susirinkimo pirmininkas yra org. pirmininkas',
+                        vote_majority_rule_default: 'Balsavimo daugumos taisyklė pagal nutylėjimą',
+                        meeting_secretary_selection: 'Susirinkimo sekretoriaus pasirinkimas',
+                        chairman_term_duration_years: 'Pirmininko kadencijos trukmė metais',
+                        project_support_work_enabled: 'Projekto paramos darbas įjungtas',
+                        council_elected_with_chairman: 'Taryba renkama su pirmininku',
+                        project_support_money_enabled: 'Projekto paramos pinigai įjungti',
+                        project_support_in_kind_enabled: 'Projekto parama natūra įjungta',
+                        project_support_live_visibility: 'Projekto paramos tiesioginė matomumas',
+                        send_agenda_email_notifications: 'Siųsti darbotvarkės el. pašto pranešimus',
+                        idea_auto_create_project_on_pass: 'Idėja automatiškai sukuria projektą pritaikius',
+                        idea_vote_min_participation_percent: 'Idėjos balsavimo minimalus dalyvavimo procentas',
+                      }
+
+                      // Value translations for specific fields
+                      const valueTranslations: Record<string, Record<string, string>> = {
+                        early_voting: {
+                          written_and_remote: 'Rašytinis ir nuotolinis',
+                          written_only: 'Tik rašytinis',
+                          remote_only: 'Tik nuotolinis',
+                          none: 'Nėra',
+                        },
+                        abstain_handling: {
+                          count_participation_only: 'Skaičiuoti tik dalyvavimą',
+                          count_as_no: 'Skaičiuoti kaip ne',
+                          count_as_yes: 'Skaičiuoti kaip taip',
+                          ignore: 'Ignoruoti',
+                        },
+                        restrict_debtors: {
+                          warning_only: 'Tik perspėjimas',
+                          block_voting: 'Blokuoti balsavimą',
+                          block_all: 'Blokuoti viską',
+                          none: 'Nėra',
+                        },
+                        new_member_approval: {
+                          chairman: 'Pirmininkas',
+                          board: 'Valdyba',
+                          ga: 'Bendrasis susirinkimas',
+                          automatic: 'Automatinis',
+                        },
+                        one_member_one_vote: {
+                          always: 'Visada',
+                          by_position: 'Pagal poziciją',
+                          weighted: 'Svertinis',
+                        },
+                        live_voting_capture_mode: {
+                          aggregate: 'Agreguotas',
+                          individual: 'Individualus',
+                          both: 'Abu',
+                        },
+                        meeting_chair_is_org_chair: {
+                          yes_auto: 'Taip, automatiškai',
+                          yes_manual: 'Taip, rankiniu būdu',
+                          no: 'Ne',
+                        },
+                        vote_majority_rule_default: {
+                          simple_majority: 'Paprastoji dauguma',
+                          two_thirds: 'Dvi trečiosios',
+                          unanimous: 'Vienbalsis',
+                        },
+                        meeting_secretary_selection: {
+                          preassigned: 'Iš anksto paskirtas',
+                          elected: 'Renkamas',
+                          automatic: 'Automatinis',
+                        },
+                      }
+
+                      // Get translated label
+                      const label = fieldTranslations[key.toLowerCase()] || key
                         .replace(/_/g, ' ')
                         .replace(/\b\w/g, (l) => l.toUpperCase())
+
+                      // Format value
+                      let displayValue: React.ReactNode = String(value)
+                      if (typeof value === 'boolean') {
+                        displayValue = (
+                          <Badge className={value ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}>
+                            {value ? 'Taip' : 'Ne'}
+                          </Badge>
+                        )
+                      } else if (typeof value === 'object') {
+                        displayValue = <pre className="text-xs font-mono">{JSON.stringify(value, null, 2)}</pre>
+                      } else {
+                        // Try to translate value if translation exists
+                        const valueTranslation = valueTranslations[key.toLowerCase()]?.[String(value).toLowerCase()]
+                        if (valueTranslation) {
+                          displayValue = valueTranslation
+                        } else {
+                          displayValue = String(value)
+                        }
+                      }
+
                       return (
                         <div key={key} className="border-b border-slate-700 pb-2 last:border-0">
                           <div className="text-slate-400 text-xs mb-1">{label}</div>
-                          <div className="text-slate-100 text-sm">
-                            {typeof value === 'boolean' ? (
-                              <Badge className={value ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}>
-                                {value ? 'Taip' : 'Ne'}
-                              </Badge>
-                            ) : typeof value === 'object' ? (
-                              <pre className="text-xs font-mono">{JSON.stringify(value, null, 2)}</pre>
-                            ) : (
-                              String(value)
-                            )}
-                          </div>
+                          <div className="text-slate-100 text-sm">{displayValue}</div>
                         </div>
                       )
                     })}
@@ -457,6 +701,109 @@ export function OrgDetailsModal({ org, isOpen, onClose, onUpdate }: OrgDetailsMo
                 </div>
               )}
             </div>
+
+            {/* Members List */}
+            {showMembers && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-slate-100">Nariai ({org.memberCount})</h3>
+                </div>
+                {loadingMembers ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                  </div>
+                ) : members.length === 0 ? (
+                  <p className="text-slate-400 text-sm">Narių nėra</p>
+                ) : (
+                  <div className="border rounded-lg divide-y bg-slate-800/50 border-slate-700">
+                    {members.map((member) => (
+                      <div
+                        key={member.id}
+                        className="flex items-center justify-between p-4 hover:bg-slate-800 transition-colors"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-slate-100 truncate">
+                            {member.full_name || member.first_name && member.last_name
+                              ? `${member.first_name} ${member.last_name}`
+                              : member.email || 'N/A'}
+                          </p>
+                          {member.email && (
+                            <p className="text-sm text-slate-400 truncate">{member.email}</p>
+                          )}
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge
+                              variant={member.role === 'OWNER' ? 'default' : 'secondary'}
+                              className="text-xs"
+                            >
+                              {member.role}
+                            </Badge>
+                            <Badge
+                              variant={
+                                member.member_status === 'ACTIVE'
+                                  ? 'default'
+                                  : member.member_status === 'SUSPENDED'
+                                  ? 'destructive'
+                                  : 'secondary'
+                              }
+                              className="text-xs"
+                            >
+                              {member.member_status}
+                            </Badge>
+                          </div>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-slate-400 hover:text-slate-100"
+                              disabled={loading || member.role === 'OWNER'}
+                            >
+                              <span className="sr-only">Atidaryti meniu</span>
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-slate-900 border-slate-800">
+                            {member.member_status === 'ACTIVE' && (
+                              <DropdownMenuItem
+                                onClick={() => handleMemberStatusChange(member, 'SUSPENDED')}
+                                className="text-slate-100 hover:bg-slate-800"
+                                disabled={loading}
+                              >
+                                <AlertCircle className="h-4 w-4 mr-2" />
+                                Sustabdyti
+                              </DropdownMenuItem>
+                            )}
+                            {member.member_status === 'SUSPENDED' && (
+                              <DropdownMenuItem
+                                onClick={() => handleMemberStatusChange(member, 'ACTIVE')}
+                                className="text-slate-100 hover:bg-slate-800"
+                                disabled={loading}
+                              >
+                                <CheckCircle2 className="h-4 w-4 mr-2" />
+                                Aktyvuoti
+                              </DropdownMenuItem>
+                            )}
+                            {member.role !== 'OWNER' && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => setMemberToDelete(member)}
+                                  className="text-red-400 hover:bg-red-500/20"
+                                  disabled={loading}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Pašalinti
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Activation Requirements */}
             <div className="space-y-3">
@@ -548,6 +895,41 @@ export function OrgDetailsModal({ org, isOpen, onClose, onUpdate }: OrgDetailsMo
           </Button>
         </div>
       </DialogContent>
+
+      {/* Delete Member Confirmation */}
+      <AlertDialog open={!!memberToDelete} onOpenChange={(open) => !open && setMemberToDelete(null)}>
+        <AlertDialogContent className="bg-slate-900 border-slate-800">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-slate-100">Pašalinti narį?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              Ar tikrai norite pašalinti narį{' '}
+              <strong className="text-slate-100">
+                {memberToDelete?.full_name || memberToDelete?.email || 'N/A'}
+              </strong>
+              ? Šis veiksmas pakeis nario statusą į 'LEFT'.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-slate-700 text-slate-300 hover:bg-slate-800">
+              Atšaukti
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteMember}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Pašalinama...
+                </>
+              ) : (
+                'Pašalinti'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }

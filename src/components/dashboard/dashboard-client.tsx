@@ -2,9 +2,8 @@
 
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, CreditCard, FolderKanban, Calendar, Activity, AlertCircle } from "lucide-react"
-import { format } from "date-fns"
-import { lt } from "date-fns/locale"
+import { Users, CreditCard, FolderKanban, Calendar, Activity, AlertCircle, Vote, Plus } from "lucide-react"
+import { formatDateLT } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 
 interface DashboardStats {
@@ -50,6 +49,7 @@ interface DashboardClientProps {
 
 export function DashboardClient({ stats, orgId, orgSlug, userRole }: DashboardClientProps) {
   const isMember = userRole === 'MEMBER'
+  const isOwner = userRole === 'OWNER'
 
   return (
     <div className="p-6 space-y-6">
@@ -60,6 +60,60 @@ export function DashboardClient({ stats, orgId, orgSlug, userRole }: DashboardCl
           Bendruomenės veiklos apžvalga
         </p>
       </div>
+
+      {/* Owner shortcuts */}
+      {isOwner && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Link
+            href={`/dashboard/${orgSlug}/governance/new`}
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+          >
+            <Card className="h-full hover:shadow-lg transition-shadow border-dashed">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Naujas susirinkimas</CardTitle>
+                <Plus className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Sukurkite susirinkimą ir paruoškite darbotvarkę
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link
+            href={`/dashboard/${orgSlug}/governance`}
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+          >
+            <Card className="h-full hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Susirinkimų valdymas</CardTitle>
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Dalyviai, protokolai ir susirinkimų istorija
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link
+            href={`/dashboard/${orgSlug}/resolutions`}
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+          >
+            <Card className="h-full hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Balsavimų valdymas</CardTitle>
+                <Vote className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Patvirtinti arba atmesti nutarimus
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -96,7 +150,7 @@ export function DashboardClient({ stats, orgId, orgSlug, userRole }: DashboardCl
               <CardContent>
                 <div className="text-2xl font-bold">{stats.invoices.unpaidCount}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Neapmokėtos sąskaitos • {stats.invoices.unpaidSum.toFixed(2)} €
+                  Neapmokėtos sąskaitos – {stats.invoices.unpaidSum.toFixed(2)} €
                 </p>
               </CardContent>
             </Card>
@@ -124,7 +178,7 @@ export function DashboardClient({ stats, orgId, orgSlug, userRole }: DashboardCl
           </Link>
         )}
 
-        {/* Meetings Card - Hide if MEMBER and no meetings, show for OWNER always */}
+        {/* Meetings Card */}
         {stats.meetings.nextMeeting ? (
           <Link
             href={`/dashboard/${orgSlug}/governance`}
@@ -132,7 +186,7 @@ export function DashboardClient({ stats, orgId, orgSlug, userRole }: DashboardCl
           >
             <Card className="h-full hover:shadow-lg transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Kvorumas</CardTitle>
+                <CardTitle className="text-sm font-medium">Susirinkimai</CardTitle>
                 <Calendar className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -140,7 +194,7 @@ export function DashboardClient({ stats, orgId, orgSlug, userRole }: DashboardCl
                   {stats.meetings.nextMeeting.title}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {format(new Date(stats.meetings.nextMeeting.scheduled_at), 'PP', { locale: lt })}
+                  {formatDateLT(stats.meetings.nextMeeting.scheduled_at, 'medium')}
                 </p>
               </CardContent>
             </Card>
@@ -154,7 +208,7 @@ export function DashboardClient({ stats, orgId, orgSlug, userRole }: DashboardCl
             >
               <Card className="h-full hover:shadow-lg transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Kvorumas</CardTitle>
+                  <CardTitle className="text-sm font-medium">Susirinkimai</CardTitle>
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -166,6 +220,27 @@ export function DashboardClient({ stats, orgId, orgSlug, userRole }: DashboardCl
             </Link>
           )
         )}
+
+        {/* Voting Card */}
+        <Link
+          href={`/dashboard/${orgSlug}/resolutions`}
+          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+        >
+          <Card className="h-full hover:shadow-lg transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Balsavimai</CardTitle>
+              <Vote className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm font-medium line-clamp-1">
+                Valdyti nutarimus
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Patvirtinti, atmesti ir peržiūrėti
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Action Widgets */}
@@ -175,7 +250,7 @@ export function DashboardClient({ stats, orgId, orgSlug, userRole }: DashboardCl
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
-              Mano Veiksmai
+              Mano veiksmai
             </CardTitle>
             <CardDescription>
               Reikalingi jūsų veiksmai
@@ -204,7 +279,7 @@ export function DashboardClient({ stats, orgId, orgSlug, userRole }: DashboardCl
                 <Calendar className="h-5 w-5 text-blue-600 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-blue-900">
-                    Dalyvavimas nežymėtas
+                    Dalyvavimas nepažymėtas
                   </p>
                   <p className="text-xs text-blue-700 mt-1">
                     {stats.userActions.unmarkedAttendance.meetingTitle}
@@ -233,7 +308,7 @@ export function DashboardClient({ stats, orgId, orgSlug, userRole }: DashboardCl
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Activity className="h-5 w-5" />
-                Naujausi Įvykiai
+                Naujausi įvykiai
               </CardTitle>
               <CardDescription>
                 Paskutiniai 5 veiksmai sistemoje
@@ -260,7 +335,7 @@ export function DashboardClient({ stats, orgId, orgSlug, userRole }: DashboardCl
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {format(new Date(event.created_at), 'PPp', { locale: lt })}
+                          {formatDateLT(event.created_at, 'datetime')}
                         </p>
                       </div>
                     </div>
@@ -284,4 +359,3 @@ export function DashboardClient({ stats, orgId, orgSlug, userRole }: DashboardCl
     </div>
   )
 }
-

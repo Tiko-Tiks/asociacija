@@ -73,7 +73,7 @@ describe('updateProjectName', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'SUSPENDED',
+          member_status: 'SUSPENDED',
           user_id: 'user-id',
         },
         error: null,
@@ -99,7 +99,7 @@ describe('updateProjectName', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'different-user-id',
         },
         error: null,
@@ -125,7 +125,7 @@ describe('updateProjectName', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -168,7 +168,7 @@ describe('updateProjectName', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-1',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -214,7 +214,7 @@ describe('updateProjectName', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -301,7 +301,7 @@ describe('updateProjectName', () => {
     const result = await updateProjectName('project-id', 'membership-id', 'New Name')
 
     expect(result).toEqual({ id: 'project-id' })
-    expect(projectsTableForUpdate.update).toHaveBeenCalledWith({ name: 'New Name' })
+    expect(projectsTableForUpdate.update).toHaveBeenCalledWith({ title: 'New Name' })
     expect(mockProjectUpdate.eq).toHaveBeenCalledWith('id', 'project-id')
   })
 
@@ -317,7 +317,7 @@ describe('updateProjectName', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -397,7 +397,7 @@ describe('updateProjectName', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -539,7 +539,7 @@ describe('deleteProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'SUSPENDED',
+          member_status: 'SUSPENDED',
           user_id: 'user-id',
         },
         error: null,
@@ -565,7 +565,7 @@ describe('deleteProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'different-user-id',
         },
         error: null,
@@ -591,7 +591,7 @@ describe('deleteProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -634,7 +634,7 @@ describe('deleteProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-1',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -680,7 +680,7 @@ describe('deleteProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -830,7 +830,7 @@ describe('archiveProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'SUSPENDED',
+          member_status: 'SUSPENDED',
           user_id: 'user-id',
         },
         error: null,
@@ -856,7 +856,7 @@ describe('archiveProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'different-user-id',
         },
         error: null,
@@ -882,7 +882,7 @@ describe('archiveProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -925,7 +925,7 @@ describe('archiveProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-1',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -971,7 +971,7 @@ describe('archiveProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -1074,7 +1074,7 @@ describe('archiveProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -1154,7 +1154,7 @@ describe('archiveProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -1296,7 +1296,7 @@ describe('restoreProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'SUSPENDED',
+          member_status: 'SUSPENDED',
           user_id: 'user-id',
         },
         error: null,
@@ -1322,7 +1322,7 @@ describe('restoreProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'different-user-id',
         },
         error: null,
@@ -1348,7 +1348,7 @@ describe('restoreProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -1391,7 +1391,7 @@ describe('restoreProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-1',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -1438,7 +1438,7 @@ describe('restoreProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,
@@ -1452,7 +1452,7 @@ describe('restoreProject', () => {
         data: {
           id: 'project-id',
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
         },
         error: null,
       }),
@@ -1485,7 +1485,7 @@ describe('restoreProject', () => {
       single: vi.fn().mockResolvedValue({
         data: {
           org_id: 'org-id',
-          status: 'ACTIVE',
+          member_status: 'ACTIVE',
           user_id: 'user-id',
         },
         error: null,

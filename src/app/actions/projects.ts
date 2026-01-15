@@ -5,11 +5,112 @@ import { requireAuth } from './_guards'
 import { authViolation, operationFailed } from '@/app/domain/errors'
 import { revalidatePath } from 'next/cache'
 
+/**
+ * ==================================================
+ * LEGACY PROJECTS MODULE — v17–v18
+ * ==================================================
+ *
+ * STATUS: READ-ONLY (v19.0 CANONICAL)
+ *
+ * v19.0 RULE:
+ * PROJECT := APPROVED RESOLUTION + metadata.project exists
+ *
+ * - Projects are NOT entities
+ * - Projects are NOT created by UI
+ * - Projects are NOT mutable objects
+ *
+ * This file exists ONLY for backward compatibility.
+ * ALL MUTATIONS ARE DISABLED.
+ *
+ * Authoritative docs:
+ * - docs/PROJECTS_MODULE_v19.md
+ * - docs/PROJECTS_REGISTRY_READONLY_v19.md
+ *
+ * ==================================================
+ */
+
+/**
+ * Centralized hard stop for all legacy mutations.
+ * This is intentional and non-recoverable.
+ */
+function legacyProjectsDisabled(functionName: string): never {
+  console.warn(
+    `[DEPRECATED v19.0] ${functionName}() is disabled. ` +
+      `Projects are derived exclusively from APPROVED resolutions ` +
+      `and live in resolutions.metadata.project.*`
+  )
+
+  throw new Error('LEGACY_PROJECTS_DISABLED')
+}
+
 // ==================================================
-// TYPES
+// LEGACY MUTATIONS — HARD DISABLED
 // ==================================================
 
-export type ProjectStatus = 'PLANNING' | 'FUNDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+/**
+ * @deprecated v19.0
+ */
+export async function createProject(
+  membershipId: string,
+  title: string,
+  description?: string,
+  budgetEur?: number
+): Promise<never> {
+  legacyProjectsDisabled('createProject')
+}
+
+/**
+ * @deprecated v19.0
+ */
+export async function updateProjectName(
+  projectId: string,
+  membershipId: string,
+  title: string
+): Promise<never> {
+  legacyProjectsDisabled('updateProjectName')
+}
+
+/**
+ * @deprecated v19.0
+ */
+export async function archiveProject(
+  projectId: string,
+  membershipId: string
+): Promise<never> {
+  legacyProjectsDisabled('archiveProject')
+}
+
+/**
+ * @deprecated v19.0
+ */
+export async function restoreProject(
+  projectId: string,
+  membershipId: string
+): Promise<never> {
+  legacyProjectsDisabled('restoreProject')
+}
+
+/**
+ * @deprecated v19.0
+ */
+export async function deleteProject(
+  projectId: string,
+  membershipId: string
+): Promise<never> {
+  legacyProjectsDisabled('deleteProject')
+}
+
+// ==================================================
+// TYPES — LEGACY (READ-ONLY COMPATIBILITY)
+// ==================================================
+
+export type ProjectStatus =
+  | 'PLANNING'
+  | 'FUNDING'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELLED'
+
 export type ContributionKind = 'MONEY' | 'IN_KIND' | 'WORK'
 export type ContributionStatus = 'PLEDGED' | 'RECEIVED' | 'CANCELLED'
 
@@ -53,113 +154,14 @@ export interface ProjectFundingTotals {
   progress_ratio: number
 }
 
-export interface PledgeMoneyResult {
-  ok: boolean
-  reason: string
-  contribution_id?: string
-}
-
-export interface PledgeInKindResult {
-  ok: boolean
-  reason: string
-  contribution_id?: string
-}
-
-export interface PledgeWorkResult {
-  ok: boolean
-  reason: string
-  contribution_id?: string
-}
-
-export interface UpdateContributionStatusResult {
-  ok: boolean
-  reason: string
-}
-
 // ==================================================
-// SERVER ACTIONS
+// LEGACY READ-ONLY ACCESSORS
 // ==================================================
 
 /**
- * Create a new project
- */
-export async function createProject(
-  orgIdOrMembershipId: string,
-  title: string,
-  description?: string,
-  budgetEur?: number
-): Promise<{ success: boolean; data?: Project; error?: string }> {
-  const supabase = await createClient()
-  const user = await requireAuth(supabase)
-
-  // Try to resolve org_id from membership_id if needed
-  let orgId = orgIdOrMembershipId
-  if (orgIdOrMembershipId.includes('-') && orgIdOrMembershipId.length > 20) {
-    // Likely a membership_id, try to resolve org_id
-    const { data: membership } = await supabase
-      .from('memberships')
-      .select('org_id')
-      .eq('id', orgIdOrMembershipId)
-      .single()
-    
-    if (membership) {
-      orgId = membership.org_id
-    }
-  }
-
-  const { data, error } = await supabase
-    .from('projects')
-    .insert({
-      org_id: orgId,
-      title: title.trim(),
-      description: description?.trim() || null,
-      budget_eur: budgetEur || 0,
-      status: 'PLANNING',
-      created_by: user.id,
-      funding_opened_at: new Date().toISOString(),
-    })
-    .select()
-    .single()
-
-  if (error) {
-    if (error.code === '42501') {
-      authViolation()
-    }
-    console.error('Error creating project:', error)
-    return {
-      success: false,
-      error: 'OPERATION_FAILED',
-    }
-  }
-
-  if (!data) {
-    return {
-      success: false,
-      error: 'OPERATION_FAILED',
-    }
-  }
-
-  revalidatePath('/dashboard', 'layout')
-  return {
-    success: true,
-    data: {
-      id: data.id,
-      org_id: data.org_id,
-      idea_id: data.idea_id,
-      title: data.title,
-      description: data.description,
-      status: data.status as ProjectStatus,
-      budget_eur: parseFloat(data.budget_eur) || 0,
-      created_by: data.created_by,
-      created_at: data.created_at,
-      funding_opened_at: data.funding_opened_at,
-      completed_at: data.completed_at,
-    },
-  }
-}
-
-/**
- * List projects for an organization
+ * LEGACY READ-ONLY
+ * Lists projects from legacy table.
+ * Will be replaced by Projects Registry (resolutions.metadata).
  */
 export async function listProjects(orgId: string): Promise<Project[]> {
   const supabase = await createClient()
@@ -172,9 +174,7 @@ export async function listProjects(orgId: string): Promise<Project[]> {
     .order('created_at', { ascending: false })
 
   if (error) {
-    if (error.code === '42501') {
-      authViolation()
-    }
+    if (error.code === '42501') authViolation()
     console.error('Error listing projects:', error)
     operationFailed()
   }
@@ -195,18 +195,20 @@ export async function listProjects(orgId: string): Promise<Project[]> {
 }
 
 /**
- * Get project by ID
+ * LEGACY READ-ONLY
  */
 export async function getProject(projectId: string): Promise<Project | null> {
   const supabase = await createClient()
   await requireAuth(supabase)
 
-  const { data, error } = await supabase.from('projects').select('*').eq('id', projectId).maybeSingle()
+  const { data, error } = await supabase
+    .from('projects')
+    .select('*')
+    .eq('id', projectId)
+    .maybeSingle()
 
   if (error) {
-    if (error.code === '42501') {
-      authViolation()
-    }
+    if (error.code === '42501') authViolation()
     console.error('Error fetching project:', error)
     return null
   }
@@ -229,9 +231,11 @@ export async function getProject(projectId: string): Promise<Project | null> {
 }
 
 /**
- * Get project funding totals
+ * LEGACY READ-ONLY
  */
-export async function getProjectFundingTotals(projectId: string): Promise<ProjectFundingTotals | null> {
+export async function getProjectFundingTotals(
+  projectId: string
+): Promise<ProjectFundingTotals | null> {
   const supabase = await createClient()
   await requireAuth(supabase)
 
@@ -242,9 +246,7 @@ export async function getProjectFundingTotals(projectId: string): Promise<Projec
     .maybeSingle()
 
   if (error) {
-    if (error.code === '42501') {
-      authViolation()
-    }
+    if (error.code === '42501') authViolation()
     console.error('Error fetching funding totals:', error)
     return null
   }
@@ -263,212 +265,3 @@ export async function getProjectFundingTotals(projectId: string): Promise<Projec
   }
 }
 
-/**
- * List contributions for a project
- */
-export async function listProjectContributions(projectId: string): Promise<ProjectContribution[]> {
-  const supabase = await createClient()
-  await requireAuth(supabase)
-
-  const { data, error } = await supabase
-    .from('project_contributions')
-    .select('*')
-    .eq('project_id', projectId)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    if (error.code === '42501') {
-      authViolation()
-    }
-    console.error('Error listing contributions:', error)
-    operationFailed()
-  }
-
-  return (data || []).map((contrib: any) => ({
-    id: contrib.id,
-    project_id: contrib.project_id,
-    org_id: contrib.org_id,
-    membership_id: contrib.membership_id,
-    kind: contrib.kind as ContributionKind,
-    status: contrib.status as ContributionStatus,
-    money_amount_eur: contrib.money_amount_eur ? parseFloat(contrib.money_amount_eur) : null,
-    in_kind_items: contrib.in_kind_items,
-    work_offer: contrib.work_offer,
-    note: contrib.note,
-    created_at: contrib.created_at,
-    updated_at: contrib.updated_at,
-  }))
-}
-
-/**
- * Pledge money
- */
-export async function pledgeMoney(
-  projectId: string,
-  amountEur: number,
-  note: string | null = null
-): Promise<PledgeMoneyResult> {
-  const supabase = await createClient()
-  await requireAuth(supabase)
-
-  const { data, error } = await supabase.rpc('pledge_money', {
-    p_project_id: projectId,
-    p_amount_eur: amountEur,
-    p_note: note,
-  })
-
-  if (error) {
-    console.error('Error pledging money:', error)
-    if (error.code === '42501') {
-      authViolation()
-    }
-    return {
-      ok: false,
-      reason: 'OPERATION_FAILED',
-    }
-  }
-
-  const result = data?.[0]
-  if (!result) {
-    return {
-      ok: false,
-      reason: 'OPERATION_FAILED',
-    }
-  }
-
-  revalidatePath('/dashboard', 'layout')
-  return {
-    ok: result.ok,
-    reason: result.reason,
-    contribution_id: result.contribution_id,
-  }
-}
-
-/**
- * Pledge in-kind items
- */
-export async function pledgeInKind(
-  projectId: string,
-  items: any[],
-  note: string | null = null
-): Promise<PledgeInKindResult> {
-  const supabase = await createClient()
-  await requireAuth(supabase)
-
-  const { data, error } = await supabase.rpc('pledge_in_kind', {
-    p_project_id: projectId,
-    p_items: items,
-    p_note: note,
-  })
-
-  if (error) {
-    console.error('Error pledging in-kind:', error)
-    if (error.code === '42501') {
-      authViolation()
-    }
-    return {
-      ok: false,
-      reason: 'OPERATION_FAILED',
-    }
-  }
-
-  const result = data?.[0]
-  if (!result) {
-    return {
-      ok: false,
-      reason: 'OPERATION_FAILED',
-    }
-  }
-
-  revalidatePath('/dashboard', 'layout')
-  return {
-    ok: result.ok,
-    reason: result.reason,
-    contribution_id: result.contribution_id,
-  }
-}
-
-/**
- * Pledge work
- */
-export async function pledgeWork(
-  projectId: string,
-  work: { type: string; hours: number; available_dates?: string[]; notes?: string },
-  note: string | null = null
-): Promise<PledgeWorkResult> {
-  const supabase = await createClient()
-  await requireAuth(supabase)
-
-  const { data, error } = await supabase.rpc('pledge_work', {
-    p_project_id: projectId,
-    p_work: work,
-    p_note: note,
-  })
-
-  if (error) {
-    console.error('Error pledging work:', error)
-    if (error.code === '42501') {
-      authViolation()
-    }
-    return {
-      ok: false,
-      reason: 'OPERATION_FAILED',
-    }
-  }
-
-  const result = data?.[0]
-  if (!result) {
-    return {
-      ok: false,
-      reason: 'OPERATION_FAILED',
-    }
-  }
-
-  revalidatePath('/dashboard', 'layout')
-  return {
-    ok: result.ok,
-    reason: result.reason,
-    contribution_id: result.contribution_id,
-  }
-}
-
-/**
- * Update contribution status (OWNER/BOARD only)
- */
-export async function updateContributionStatus(
-  contributionId: string,
-  status: ContributionStatus
-): Promise<UpdateContributionStatusResult> {
-  const supabase = await createClient()
-  await requireAuth(supabase)
-
-  const { data, error } = await supabase.rpc('update_contribution_status', {
-    p_contribution_id: contributionId,
-    p_status: status,
-  })
-
-  if (error) {
-    console.error('Error updating contribution status:', error)
-    if (error.code === '42501') {
-      authViolation()
-    }
-    return {
-      ok: false,
-      reason: 'OPERATION_FAILED',
-    }
-  }
-
-  const result = data?.[0]
-  if (!result) {
-    return {
-      ok: false,
-      reason: 'OPERATION_FAILED',
-    }
-  }
-
-  revalidatePath('/dashboard', 'layout')
-  return {
-    ok: result.ok,
-    reason: result.reason,
-  }
-}

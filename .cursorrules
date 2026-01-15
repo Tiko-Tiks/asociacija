@@ -1,122 +1,85 @@
-# ==================================================
-# PROJECT: BRANDUOLYS (Community OS)
-# MODE: PRODUCTION / GOVERNANCE
-# AUDIT MODE: SOFT (DOCUMENTED)
-# ==================================================
+PROJECT: BENDRUOMENIŲ BRANDUOLYS
+MODE: GOVERNANCE / AUDIT-SAFE
+DB: Supabase (PostgreSQL)
+SCHEMA STATUS: CODE FREEZE (v19.0)
 
-You are working on an institutional governance platform.
-This is NOT a startup MVP, CRUD app, or growth product.
+You are working on an institutional governance system.
+This is NOT a startup app or flexible schema project.
 
---------------------------------------------------
-CORE PHILOSOPHY (NON-NEGOTIABLE)
---------------------------------------------------
+---
 
-1. CONSTITUTION FIRST
-- Law and procedure override convenience.
-- No technical or UI logic may bypass legal constraints.
-- All critical actions must be explainable, reviewable, and traceable.
+CORE RULES (ABSOLUTE)
 
-2. PHYSICAL PRIMACY
-- The system does NOT create legitimacy.
-- The system registers decisions made in the physical world.
-- Never simulate quorum, voting outcomes, or authority.
+1. DATABASE SCHEMA IS IMMUTABLE
+- No new tables
+- No new columns
+- No ALTER TABLE
+- No schema refactors
 
-3. EXTERNAL GUARDIAN
-- The platform acts as a procedural lock and auditor.
-- Unilateral changes to constitutional parameters are forbidden.
+2. METADATA JSONB IS THE ONLY EXTENSION CHANNEL
+- metadata always exists
+- metadata is always an object
+- metadata follows strict namespace rules
 
---------------------------------------------------
-DATA MODEL RULES
---------------------------------------------------
+Allowed prefixes ONLY:
+- fact.*
+- indicator.*
+- project.*
+- ui.*
+- template.*
+- ai.*
 
-4. ROLES VS POSITIONS
-- `role` (OWNER / MEMBER) = technical access only.
-- Organizational authority is expressed ONLY via `positions`.
-- Never infer real-world authority from `role`.
+Any other key is INVALID.
 
-5. MEMBERSHIP LIFECYCLE
-- Members are NEVER deleted.
-- Valid lifecycle:
-  PENDING → ACTIVE → SUSPENDED → LEFT
-- Status changes REQUIRE:
-  - explicit reason
-  - audit log entry (see Audit Mode)
+---
 
-6. RESOLUTIONS ARE LEGAL ACTS
-- Official decisions MUST use `resolutions`.
-- Projects are operational artifacts, not legal decisions.
-- APPROVED resolutions are immutable.
+LEGAL ENFORCEMENT RULES
 
---------------------------------------------------
-AUDIT & TRACEABILITY
---------------------------------------------------
+- APPROVED resolutions are IMMUTABLE
+- You must NEVER suggest updating metadata of an APPROVED resolution
+- Any change requires a NEW resolution with a reference
 
-7. AUDIT IS MANDATORY
-- The following actions MUST attempt to write to `audit_logs`:
-  - membership status change
-  - position assignment
-  - resolution approval / rejection
-  - system configuration change
+AI OUTPUT RULE:
+- AI data is INTERPRETATION ONLY
+- AI data has NO legal or procedural power
+- AI data must be clearly labeled (ai.*)
 
-7a. AUDIT FAILURE — SOFT MODE (APPROVED)
-- Audit logging is mandatory but not a transaction blocker.
-- If audit insertion fails due to technical reasons:
-  - the primary operation MAY succeed
-  - the failure MUST be:
-    - explicitly logged (console.error)
-    - surfaced for monitoring / incident review
-- Silent audit failures are FORBIDDEN.
-- Repeated audit failures constitute a critical incident.
+---
 
---------------------------------------------------
-ERROR HANDLING
---------------------------------------------------
+IMPLEMENTATION RULES (SUPABASE)
 
-8. NO SILENT FAILS
-- Errors must never be swallowed.
-- RLS blocks must surface as explicit domain errors (e.g. `rls_blocked`).
-- UI must reflect failure states clearly.
+- Validation logic goes into:
+  - triggers
+  - RPC functions
+- UI must NOT update metadata directly
+- Analytics go into SQL views
+- Runtime calculations go into views or RPC
 
---------------------------------------------------
-IMPLEMENTATION CONSTRAINTS
---------------------------------------------------
+---
 
-9. SERVER ACTIONS ONLY
-- All state changes MUST go through Server Actions.
-- No direct client-side inserts, updates, or deletes.
-- Governance logic may NEVER live only in UI.
+STRICTLY FORBIDDEN
 
-10. IMMUTABILITY
-- Approved resolutions cannot be edited.
-- Audit logs are append-only.
-- Historical data must be preserved.
+- metadata.title
+- metadata.status
+- metadata.created_at
+- duplicating structural columns inside metadata
+- using metadata as a relational table
 
---------------------------------------------------
-AI USAGE CONSTRAINTS
---------------------------------------------------
+---
 
-11. AI IS ADVISORY ONLY
-- AI never decides.
-- AI never auto-approves.
-- AI outputs require explicit human confirmation.
+WHEN IN DOUBT
 
---------------------------------------------------
-PROHIBITIONS
---------------------------------------------------
+Default to:
+- procedural safety
+- audit clarity
+- human confirmation
 
-12. FORBIDDEN ACTIONS
-- No hidden admin overrides.
-- No permission auto-escalation.
-- No backdoors, bypass flags, or emergency shortcuts.
-- Do not refactor working systems without explicit instruction.
+If a request conflicts with Governance principles:
+→ You must REFUSE and explain why.
 
---------------------------------------------------
-DEFAULT BEHAVIOR
---------------------------------------------------
+---
 
-13. IF UNCERTAIN
-- Ask for clarification.
-- Do NOT assume intent.
-- Prefer legality, safety, and traceability over UX shortcuts.
+FINAL PRINCIPLE
 
-END OF RULES
+The system does NOT create legitimacy.
+It only records and protects legitimacy created by humans.

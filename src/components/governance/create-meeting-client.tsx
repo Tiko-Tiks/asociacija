@@ -1,34 +1,40 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Users, AlertTriangle, Building2 } from "lucide-react"
 import { createMeeting } from "@/app/actions/governance"
+import { MEETING_TYPE_CONFIG, type MeetingType } from "@/app/domain/meeting-types"
 import { useToast } from "@/components/ui/use-toast"
-import { addDays } from "date-fns"
-import { format } from "date-fns"
+import { addDays, format } from "date-fns"
 import { ERROR_CODE } from "@/app/domain/constants"
+import { TimePicker } from "@/components/ui/time-picker"
+import { DatePickerLT } from "@/components/ui/date-picker-lt"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 /**
  * Maps DomainError to user-friendly Lithuanian messages.
  * Treats operation_failed as an expected domain outcome, not a crash.
- * 
+ *
  * Note: When DomainError is thrown from server actions, Next.js serializes it.
  * DomainError constructor sets error.message to the code string, so we check message === ERROR_CODE.
  */
 function mapGovernanceError(error: unknown): string {
-  // DomainError thrown from server actions will have message matching ERROR_CODE
   if (error instanceof Error) {
     const errorMessage = error.message
-    // Check for operation_failed error code (DomainError sets message to code string)
     if (errorMessage === ERROR_CODE.OPERATION_FAILED) {
       return "Sprendimai priimami fiziniame susirinkime ir fiksuojami protokole. Įkelkite protokolą po susirinkimo."
     }
   }
-  // Fallback for unknown errors
   return error instanceof Error ? error.message : "Įvyko nenumatyta klaida"
 }
 
@@ -51,47 +57,86 @@ export function CreateMeetingClient({
 }: CreateMeetingClientProps) {
   const router = useRouter()
   const { toast } = useToast()
+  const [meetingType, setMeetingType] = useState<MeetingType>('GA')
   const [title, setTitle] = useState("")
-  const [scheduledAt, setScheduledAt] = useState("")
+  const [scheduledDate, setScheduledDate] = useState("")
+  const [scheduledTime, setScheduledTime] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Get default title based on meeting type
+  const getDefaultTitle = (type: MeetingType): string => {
+    const config = MEETING_TYPE_CONFIG[type]
+    const year = new Date().getFullYear()
+    return `${config.label} ${year}`
+  }
+  
+  // Get icon for meeting type
+  const getMeetingTypeIcon = (type: MeetingType) => {
+    switch (type) {
+      case 'GA': return <Users className="h-4 w-4" />
+      case 'GA_EXTRAORDINARY': return <AlertTriangle className="h-4 w-4" />
+      case 'BOARD': return <Building2 className="h-4 w-4" />
+    }
+  }
+  
+  // Update title when meeting type changes
+  const handleMeetingTypeChange = (type: MeetingType) => {
+    setMeetingType(type)
+    // Only update title if it's empty or matches previous default
+    if (!title || Object.values(MEETING_TYPE_CONFIG).some(c => title.startsWith(c.label))) {
+      setTitle(getDefaultTitle(type))
+    }
+  }
 
-  // Calculate minimum date based on notice period
-  const minDate = ruleset
-    ? format(addDays(new Date(), ruleset.notice_period_days), "yyyy-MM-dd'T'HH:mm")
-    : format(addDays(new Date(), 7), "yyyy-MM-dd'T'HH:mm") // Default to 7 days if no ruleset
+  const minDateTime = useMemo(() => {
+    // If notice_period_days is 0, null, or undefined - allow same day
+    // Only apply delay if explicitly set to a positive number
+    const noticeDays = (ruleset?.notice_period_days !== null && ruleset?.notice_period_days !== undefined && ruleset.notice_period_days > 0)
+      ? ruleset.notice_period_days 
+      : 0
+    return addDays(new Date(), noticeDays)
+  }, [ruleset])
+
+  const minDate = format(minDateTime, "yyyy-MM-dd")
+  const minTimeForMinDate = format(minDateTime, "HH:mm")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!title.trim()) {
+
+    if (!scheduledDate || !scheduledTime) {
       toast({
         title: "Klaida",
-        description: "Prašome įvesti susirinkimo pavadinimą",
+        description: "Prašome pasirinkti susirinkimo datą ir laiką",
         variant: "destructive" as any,
       })
       return
     }
 
-    if (!scheduledAt) {
+    if (scheduledDate === minDate && scheduledTime < minTimeForMinDate) {
       toast({
         title: "Klaida",
-        description: "Prašome pasirinkti susirinkimo datą",
+        description: "Pasirinktas laikas per ankstyvas pagal minimalią skelbimo datą",
         variant: "destructive" as any,
       })
       return
     }
+
+    const scheduledAt = `${scheduledDate}T${scheduledTime}`
+    
+    // Use provided title or auto-generate from meeting type
+    const finalTitle = title.trim() || getDefaultTitle(meetingType)
 
     setIsSubmitting(true)
     try {
-      await createMeeting(membershipId, title.trim(), scheduledAt)
+      const result = await createMeeting(membershipId, finalTitle, scheduledAt, meetingType)
       toast({
-        title: "Sėkmė",
-        description: "Susirinkimas sukurtas sėkmingai",
+        title: "Susirinkimas sukurtas",
+        description: "Dabar galite sudaryti darbotvarkę",
       })
-      router.push(`/dashboard/${orgSlug}/governance`)
+      // Redirect to meeting detail page to continue with agenda creation
+      router.push(`/dashboard/${orgSlug}/governance/${result.id}`)
       router.refresh()
     } catch (error) {
-      // Map DomainError to user-friendly message (no stack traces, no raw error codes)
       const userMessage = mapGovernanceError(error)
       toast({
         title: "Klaida",
@@ -116,52 +161,106 @@ export function CreateMeetingClient({
 
       <Card>
         <CardHeader>
-          <CardTitle>Šaukti Susirinkimą</CardTitle>
+          <CardTitle>Šaukti susirinkimą</CardTitle>
           <CardDescription>
             Sukurkite naują bendruomenės susirinkimą
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Susirinkimo tipas */}
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Susirinkimo tipas <span className="text-destructive">*</span>
+              </label>
+              <Select
+                value={meetingType}
+                onValueChange={(value) => handleMeetingTypeChange(value as MeetingType)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Pasirinkite susirinkimo tipą" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(MEETING_TYPE_CONFIG) as MeetingType[]).map((type) => {
+                    const config = MEETING_TYPE_CONFIG[type]
+                    return (
+                      <SelectItem key={type} value={type}>
+                        <div className="flex items-center gap-2">
+                          {getMeetingTypeIcon(type)}
+                          <span>{config.label}</span>
+                        </div>
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+              {/* Tipo aprašymas */}
+              <p className="mt-2 text-sm text-muted-foreground">
+                {MEETING_TYPE_CONFIG[meetingType].description}
+              </p>
+            </div>
+
+            {/* Pavadinimas (neprivalomas) */}
             <div>
               <label htmlFor="title" className="block text-sm font-medium mb-2">
-                Pavadinimas <span className="text-destructive">*</span>
+                Pavadinimas <span className="text-xs text-muted-foreground">(neprivalomas)</span>
               </label>
               <Input
                 id="title"
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Susirinkimo pavadinimas"
-                required
+                placeholder={getDefaultTitle(meetingType)}
                 className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Jei neįvesite, bus naudojamas: {getDefaultTitle(meetingType)}
+              </p>
             </div>
 
-            <div>
-              <label htmlFor="scheduledAt" className="block text-sm font-medium mb-2">
-                Data ir Laikas <span className="text-destructive">*</span>
-              </label>
-              <Input
-                id="scheduledAt"
-                type="datetime-local"
-                value={scheduledAt}
-                onChange={(e) => setScheduledAt(e.target.value)}
-                min={minDate}
-                required
-                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              />
-              {ruleset && (
-                <div className="mt-2 space-y-1">
-                  <p className="text-sm text-muted-foreground">
-                    Minimalus terminas: {ruleset.notice_period_days} dienos nuo šiandien
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Pagal aktyvią konstituciją, susirinkimas turi būti paskelbtas mažiausiai {ruleset.notice_period_days} dienų iš anksto.
-                  </p>
-                </div>
-              )}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="scheduledDate" className="block text-sm font-medium mb-2">
+                  Data <span className="text-destructive">*</span>
+                </label>
+                <DatePickerLT
+                  id="scheduledDate"
+                  value={scheduledDate}
+                  onChange={setScheduledDate}
+                  min={minDate}
+                  required
+                  placeholder="Pasirinkite datą"
+                />
+              </div>
+              <div>
+                <label htmlFor="scheduledTime" className="block text-sm font-medium mb-2">
+                  Laikas <span className="text-destructive">*</span>
+                </label>
+                <TimePicker
+                  id="scheduledTime"
+                  value={scheduledTime}
+                  onChange={setScheduledTime}
+                  min={scheduledDate === minDate ? minTimeForMinDate : undefined}
+                  required
+                />
+              </div>
             </div>
+
+            {ruleset && ruleset.notice_period_days !== null && ruleset.notice_period_days > 0 && (
+              <div className="mt-2 space-y-1">
+                <p className="text-sm text-muted-foreground">
+                  Minimalus terminas: {ruleset.notice_period_days} dienos nuo šiandien
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Pagal aktyvią konstituciją, susirinkimas turi būti paskelbtas mažiausiai {ruleset.notice_period_days} dienų iš anksto.
+                </p>
+              </div>
+            )}
+            {(!ruleset || ruleset.notice_period_days === null || ruleset.notice_period_days === 0) && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Galite pasirinkti bet kurią datą (nenustatytas minimalus terminas).
+              </p>
+            )}
 
             <div className="flex gap-3 pt-4">
               <Button
@@ -169,7 +268,7 @@ export function CreateMeetingClient({
                 disabled={isSubmitting}
                 className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                {isSubmitting ? "Kuriama..." : "Sukurti Susirinkimą"}
+                {isSubmitting ? "Kuriama..." : "Tęsti → Darbotvarkė"}
               </Button>
               <Button
                 type="button"
@@ -187,4 +286,3 @@ export function CreateMeetingClient({
     </div>
   )
 }
-

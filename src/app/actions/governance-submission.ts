@@ -308,7 +308,7 @@ export async function submitGovernanceAnswers(
     console.error('AUDIT INCIDENT: Failed to log GOVERNANCE_ANSWERS_SUBMITTED:', auditError)
   }
 
-  // Step 6: Check if all consents are accepted, then send email to CORE
+  // Step 6: Check if all consents are accepted, then send email to Platforma
   try {
     const allConsentsAccepted = await hasAllRequiredConsents(orgId, user.id)
     
@@ -327,7 +327,7 @@ export async function submitGovernanceAnswers(
         .single()
 
       if (org) {
-        // Send email to CORE (fail silently)
+        // Send email to Platforma (fail silently)
         sendGovernanceSubmissionEmail({
           orgName: org.name,
           orgSlug: org.slug,
@@ -346,14 +346,21 @@ export async function submitGovernanceAnswers(
     // Step 7: Update compliance status after saving
     // This ensures compliance validation reflects the new answers
     try {
-      const { validateOrgCompliance } = await import('./governance-compliance')
+      const { validateOrgCompliance, markOrgComplianceOk } = await import('./governance-compliance')
       const validationResult = await validateOrgCompliance(orgId)
       console.log('Compliance validation after submit:', {
         orgId,
         status: validationResult?.status,
         missing: validationResult?.missing_required?.length || 0,
         invalid: validationResult?.invalid_types?.length || 0,
+        schemaVersionNo: validationResult?.schema_version_no,
       })
+      
+      // If validation is OK, mark as compliant with current schema version
+      if (validationResult && validationResult.status === 'OK') {
+        await markOrgComplianceOk(orgId, validationResult.schema_version_no)
+        console.log('Marked org as compliant with schema version:', validationResult.schema_version_no)
+      }
     } catch (error) {
       // Log but don't fail - compliance update is optional
       console.error('Error updating compliance after governance submission:', error)
@@ -363,6 +370,7 @@ export async function submitGovernanceAnswers(
     revalidatePath('/dashboard', 'layout')
     revalidatePath('/onboarding', 'page')
     revalidatePath(`/dashboard/[slug]/settings/governance`, 'page')
+    revalidatePath(`/dashboard`, 'page') // Revalidate dashboard to update compliance banner
 
     return { success: true }
   } catch (error: any) {

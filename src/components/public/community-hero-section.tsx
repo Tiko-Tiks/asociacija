@@ -1,82 +1,113 @@
+'use client'
+
+import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { LogIn, Plus } from 'lucide-react'
+import { LogIn, UserPlus, Calendar, FileText, Award } from 'lucide-react'
+import { LoginDialog } from '@/components/auth/login-dialog'
 
 interface CommunityHeroSectionProps {
   name: string
   slug: string
   description: string | null
+  stats: {
+    events: number
+    resolutions: number
+    positions: number
+  }
 }
 
 export function CommunityHeroSection({
   name,
   slug,
   description,
+  stats,
 }: CommunityHeroSectionProps) {
+  const [loginDialogOpen, setLoginDialogOpen] = useState(false)
+
   return (
-    <section className="bg-gradient-to-b from-slate-50 via-white to-slate-50 py-16 md:py-24">
-      <div className="container mx-auto px-4">
-        <div className="max-w-4xl mx-auto text-center space-y-6">
-          {/* Community Name */}
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900">
-            {name}
-          </h1>
-
-          {/* Slug / Subdomain */}
-          <p className="text-lg text-slate-600 font-mono">
-            /c/{slug}
-          </p>
-
-          {/* Description */}
-          {description ? (
-            <p className="text-xl md:text-2xl text-slate-700 max-w-3xl mx-auto leading-relaxed">
-              {description}
-            </p>
-          ) : (
-            <p className="text-xl md:text-2xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
-              Sveiki atvykę į mūsų bendruomenės svetainę. Čia rasite informaciją apie mūsų veiklą, renginius ir sprendimus.
-            </p>
-          )}
-
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center pt-6">
-            <Button
-              asChild
-              size="lg"
-              className="text-lg px-8 py-6 h-auto font-semibold"
-            >
-              <Link href={`/login?redirect=/dashboard/${slug}`}>
-                <LogIn className="mr-2 h-5 w-5" />
-                Prisijungti prie bendruomenės
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              size="lg"
-              className="text-lg px-8 py-6 h-auto font-semibold"
-            >
-              <Link href="/register-community">
-                <Plus className="mr-2 h-5 w-5" />
-                Registruoti bendruomenę
-              </Link>
-            </Button>
+    <section className="min-h-screen bg-[#fafafa]">
+      <div className="container mx-auto px-4 py-16 md:py-24">
+        <div className="max-w-lg mx-auto">
+          {/* Logo / Brand */}
+          <div className="flex justify-center mb-8">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-200">
+              <span className="text-2xl font-bold text-white">
+                {name.charAt(0).toUpperCase()}
+              </span>
+            </div>
           </div>
 
-          {/* Helper Text */}
-          <p className="text-sm text-slate-500 pt-2">
-            Arba{' '}
-            <Link
-              href="/register-community"
-              className="text-blue-600 hover:text-blue-700 underline font-medium"
-            >
-              registruokite savo bendruomenę
+          {/* Title */}
+          <div className="text-center mb-10">
+            <h1 className="text-2xl md:text-3xl font-semibold text-slate-900 mb-2">
+              {name}
+            </h1>
+            <p className="text-slate-500">
+              {description || 'Bendruomenės svetainė'}
+            </p>
+          </div>
+
+          {/* Stats inline */}
+          <div className="flex justify-center gap-6 mb-10 text-sm">
+            <div className="flex items-center gap-1.5 text-slate-500">
+              <Calendar className="h-4 w-4" />
+              <span>{stats.events} renginiai</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-slate-500">
+              <FileText className="h-4 w-4" />
+              <span>{stats.resolutions} nutarimai</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-slate-500">
+              <Award className="h-4 w-4" />
+              <span>{stats.positions} valdyba</span>
+            </div>
+          </div>
+
+          {/* Main Card with two buttons */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-8 mb-4">
+            <div className="space-y-3">
+              <Button
+                asChild
+                className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <Link href="/register">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Registruotis
+                </Link>
+              </Button>
+              
+              <Button
+                onClick={() => setLoginDialogOpen(true)}
+                variant="outline"
+                className="w-full h-11 rounded-xl border-slate-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <LogIn className="mr-2 h-4 w-4" />
+                Prisijungti
+              </Button>
+            </div>
+          </div>
+          
+          <LoginDialog
+            open={loginDialogOpen}
+            onOpenChange={setLoginDialogOpen}
+            redirectTo={`/c/${slug}`}
+          />
+
+          {/* Footer links */}
+          <div className="flex justify-center gap-6 mt-10 text-sm">
+            <Link href="#about" className="text-slate-500 hover:text-slate-900 transition-colors">
+              Apie
             </Link>
-            {' '}ir pradėkite naudoti platformą nemokamai
-          </p>
+            <Link href="#activity" className="text-slate-500 hover:text-slate-900 transition-colors">
+              Veikla
+            </Link>
+            <Link href="#leadership" className="text-slate-500 hover:text-slate-900 transition-colors">
+              Valdyba
+            </Link>
+          </div>
         </div>
       </div>
     </section>
   )
 }
-

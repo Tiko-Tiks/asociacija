@@ -46,8 +46,10 @@ async function MeetingDetailsContent({
       <MeetingView
         meeting={meeting}
         orgId={selectedOrg.id}
+        orgSlug={selectedOrg.slug}
         isOwner={isOwner}
         isBoard={isBoard}
+        membershipId={selectedOrg.membership_id}
       />
     </div>
   )

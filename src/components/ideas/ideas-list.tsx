@@ -1,11 +1,18 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Clock, CheckCircle, XCircle, AlertCircle, Archive } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Plus, MoreVertical, Eye, FileText, MessageSquare, AlertTriangle } from 'lucide-react'
 import { listIdeas, type Idea } from '@/app/actions/ideas'
+import { PHASE_CONFIG, type IdeaPhase } from '@/lib/ideas-utils'
 import { useRouter } from 'next/navigation'
 import { CreateIdeaModal } from './create-idea-modal'
 import { format } from 'date-fns'
@@ -18,15 +25,15 @@ interface IdeasListProps {
   isBoard: boolean
 }
 
-const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: any }> = {
-  DRAFT: { label: 'Juodraštis', variant: 'outline', icon: Archive },
-  OPEN: { label: 'Balsuojama', variant: 'default', icon: Clock },
-  PASSED: { label: 'Pritarta', variant: 'default', icon: CheckCircle },
-  FAILED: { label: 'Nepritarta', variant: 'destructive', icon: XCircle },
-  NOT_COMPLETED: { label: 'Neįvykdyta', variant: 'secondary', icon: AlertCircle },
-  ARCHIVED: { label: 'Archyvuota', variant: 'outline', icon: Archive },
-}
-
+/**
+ * PRE-GOVERNANCE Ideas List
+ * 
+ * Visual constraints:
+ * - No green/success colors
+ * - No progress bars
+ * - No approval indicators
+ * - ready_for_vote uses WARNING color (amber)
+ */
 export function IdeasList({ orgId, orgSlug, isOwner, isBoard }: IdeasListProps) {
   const router = useRouter()
   const [ideas, setIdeas] = useState<Idea[]>([])
@@ -42,7 +49,7 @@ export function IdeasList({ orgId, orgSlug, isOwner, isBoard }: IdeasListProps) 
   const loadIdeas = async () => {
     try {
       setLoading(true)
-      const data = await listIdeas(orgId, canManage) // includeDraft if can manage
+      const data = await listIdeas(orgId)
       setIdeas(data)
     } catch (error) {
       console.error('Error loading ideas:', error)
@@ -61,19 +68,37 @@ export function IdeasList({ orgId, orgSlug, isOwner, isBoard }: IdeasListProps) 
 
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Idėjos</h2>
-          <p className="text-sm text-gray-600">Bendruomenės idėjos ir balsavimai</p>
+          <h2 className="text-2xl font-bold text-gray-900">Idėjos</h2>
+          <p className="text-sm text-gray-600">
+            Bendruomenės idėjų diskusijos ir planavimas
+          </p>
         </div>
         {canManage && (
-          <Button onClick={() => setShowCreateModal(true)}>
+          <Button onClick={() => setShowCreateModal(true)} variant="outline">
             <Plus className="h-4 w-4 mr-2" />
             Sukurti idėją
           </Button>
         )}
       </div>
 
+      {/* PRE-GOVERNANCE Disclaimer */}
+      <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+        <div className="flex items-start gap-2">
+          <FileText className="h-4 w-4 mt-0.5 text-gray-500" />
+          <div>
+            <p className="font-medium text-gray-700">Idėjų modulis – diskusijų erdvė</p>
+            <p className="mt-1">
+              Idėjos yra diskusijų objektai be teisinės ar procedūrinės galios. 
+              Fazės yra tik žymės, ne statusai. Sprendimai priimami Valdymo modulyje.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Ideas List */}
       {ideas.length === 0 ? (
         <Card>
           <CardContent className="p-6 text-center text-gray-500">
@@ -81,49 +106,55 @@ export function IdeasList({ orgId, orgSlug, isOwner, isBoard }: IdeasListProps) 
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div className="border border-gray-200 rounded-lg divide-y divide-gray-200 bg-white">
           {ideas.map((idea) => {
-            const statusInfo = statusConfig[idea.status] || statusConfig.DRAFT
-            const StatusIcon = statusInfo.icon
+            const phaseConfig = PHASE_CONFIG[idea.phase]
 
             return (
-              <Card
+              <div
                 key={idea.id}
-                className="hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => handleIdeaClick(idea.id)}
+                className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
               >
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg">{idea.title}</CardTitle>
-                      {idea.summary && (
-                        <CardDescription className="mt-2">{idea.summary}</CardDescription>
-                      )}
+                <div 
+                  className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer" 
+                  onClick={() => handleIdeaClick(idea.id)}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <h4 className="font-medium text-gray-900 truncate">
+                        {idea.title}
+                      </h4>
+                      <PhaseBadge phase={idea.phase} />
                     </div>
-                    <Badge variant={statusInfo.variant} className="flex items-center gap-1">
-                      <StatusIcon className="h-3 w-3" />
-                      {statusInfo.label}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
-                    <span>
-                      Sukurta: {format(new Date(idea.created_at), 'PP', { locale: lt })}
-                    </span>
-                    {idea.opened_at && (
+                    {idea.summary && (
+                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                        {idea.summary.substring(0, 150)}
+                        {idea.summary.length > 150 && '...'}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
                       <span>
-                        Balsavimas pradėtas: {format(new Date(idea.opened_at), 'PP', { locale: lt })}
+                        Sukurta: {format(new Date(idea.created_at), 'yyyy-MM-dd', { locale: lt })}
                       </span>
-                    )}
-                    {idea.public_visible && (
-                      <Badge variant="outline" className="text-xs">
-                        Vieša
-                      </Badge>
-                    )}
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <MoreVertical className="h-4 w-4" />
+                      <span className="sr-only">Atidaryti meniu</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleIdeaClick(idea.id)}>
+                      <Eye className="h-4 w-4 mr-2" />
+                      Peržiūrėti
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             )
           })}
         </div>
@@ -142,3 +173,36 @@ export function IdeasList({ orgId, orgSlug, isOwner, isBoard }: IdeasListProps) 
   )
 }
 
+/**
+ * Phase Badge Component
+ * 
+ * PRE-GOVERNANCE colors:
+ * - No green (success)
+ * - ready_for_vote uses amber (warning)
+ * - No checkmarks
+ */
+function PhaseBadge({ phase }: { phase: IdeaPhase }) {
+  const config = PHASE_CONFIG[phase]
+  
+  // Special handling for ready_for_vote - warning style
+  if (phase === 'ready_for_vote') {
+    return (
+      <Badge 
+        variant="outline" 
+        className="border-amber-300 bg-amber-50 text-amber-700 flex items-center gap-1"
+      >
+        <AlertTriangle className="h-3 w-3" />
+        {config.label}
+      </Badge>
+    )
+  }
+
+  return (
+    <Badge 
+      variant="outline" 
+      className={`${config.borderColor} ${config.bgColor} ${config.color}`}
+    >
+      {config.label}
+    </Badge>
+  )
+}

@@ -1,3 +1,7 @@
+/**
+ * LEGACY (v17–v18): This component is read-only.
+ * Projects v19.0+ are derived from APPROVED resolutions.
+ */
 "use client"
 
 import { useState, Suspense } from "react"

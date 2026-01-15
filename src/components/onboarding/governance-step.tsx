@@ -11,6 +11,7 @@ import { submitGovernanceAnswers } from '@/app/actions/governance-submission'
 import { saveGovernanceDraft } from '@/app/actions/governance-draft'
 import { getActiveGovernanceQuestions, type GovernanceQuestion } from '@/app/actions/governance-questions'
 import { getGovernanceConfig } from '@/app/actions/governance-config'
+import type { ComplianceValidation } from '@/app/actions/governance-compliance-types'
 import { useToast } from '@/components/ui/use-toast'
 import { Loader2, FileText, Save } from 'lucide-react'
 
@@ -18,9 +19,10 @@ interface GovernanceStepProps {
   orgId: string
   onComplete: () => void
   allowUpdateForActive?: boolean
+  validation?: ComplianceValidation | null
 }
 
-export function GovernanceStep({ orgId, onComplete, allowUpdateForActive = false }: GovernanceStepProps) {
+export function GovernanceStep({ orgId, onComplete, allowUpdateForActive = false, validation }: GovernanceStepProps) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [savingDraft, setSavingDraft] = useState(false)
@@ -29,6 +31,7 @@ export function GovernanceStep({ orgId, onComplete, allowUpdateForActive = false
   const [currentSection, setCurrentSection] = useState(0)
   const [formData, setFormData] = useState<Record<string, any>>({})
   const [validationErrors, setValidationErrors] = useState<Record<number, string[]>>({})
+
 
   // Load questions and existing answers from DB
   useEffect(() => {
@@ -76,24 +79,62 @@ export function GovernanceStep({ orgId, onComplete, allowUpdateForActive = false
     loadQuestions()
   }, [orgId, toast])
 
-  // Get unique sections
+  // Filter questions to show only those that need fixing (if validation provided)
+  const filteredQuestions = useMemo(() => {
+    // If no validation provided, show all questions (first time onboarding)
+    if (!validation) {
+      return questions
+    }
+    
+    // If validation status is OK, no questions need fixing
+    if (validation.status === 'OK') {
+      return []
+    }
+    
+    // Check if there are any issues to fix
+    const missingRequired = validation.missing_required || []
+    const invalidTypes = validation.invalid_types || []
+    const hasMissing = missingRequired.length > 0
+    const hasInvalid = invalidTypes.length > 0
+    
+    // If no issues found, don't show any questions (all are already correct)
+    if (!hasMissing && !hasInvalid) {
+      return []
+    }
+    
+    // Get set of question keys that need fixing
+    const needsFixing = new Set<string>()
+    missingRequired.forEach((key: string) => needsFixing.add(key))
+    invalidTypes.forEach((item: { question_key: string }) => needsFixing.add(item.question_key))
+    
+    // Filter questions to ONLY include those that directly need fixing
+    // Don't show dependencies - only show the questions that have issues
+    const filtered = questions.filter(q => {
+      return needsFixing.has(q.question_key)
+    })
+    
+    return filtered
+  }, [questions, validation])
+  
+
+  // Get unique sections from filtered questions
   const sections = useMemo(() => {
-    const uniqueSections = Array.from(new Set(questions.map((q) => q.section)))
+    const uniqueSections = Array.from(new Set(filteredQuestions.map((q) => q.section)))
     return uniqueSections.sort((a, b) => {
-      const orderA = questions.find((q) => q.section === a)?.section_order || 0
-      const orderB = questions.find((q) => q.section === b)?.section_order || 0
+      const orderA = filteredQuestions.find((q) => q.section === a)?.section_order || 0
+      const orderB = filteredQuestions.find((q) => q.section === b)?.section_order || 0
       return orderA - orderB
     })
-  }, [questions])
+  }, [filteredQuestions])
 
   // Get questions for current section
   const currentSectionQuestions = useMemo(() => {
     if (sections.length === 0) return []
     const sectionName = sections[currentSection]
-    return questions
+    return filteredQuestions
       .filter((q) => q.section === sectionName)
       .sort((a, b) => a.section_order - b.section_order)
-  }, [questions, sections, currentSection])
+  }, [filteredQuestions, sections, currentSection])
 
   // Check if a question should be visible (based on depends_on)
   const isQuestionVisible = useCallback(
@@ -101,6 +142,25 @@ export function GovernanceStep({ orgId, onComplete, allowUpdateForActive = false
       if (!question.depends_on) return true
 
       const dependsValue = formData[question.depends_on]
+      
+      // Special handling for board_member_count - show for any governing body type except 'nera'
+      if (question.question_key === 'board_member_count') {
+        const govBodyType = formData['governing_body_type']
+        return govBodyType && govBodyType !== 'nera'
+      }
+      
+      // Special handling for board term questions - show for any governing body type except 'nera'
+      if (question.question_key === 'board_term_same_as_chairman' ||
+          question.question_key === 'board_term_start' ||
+          question.question_key === 'board_term_years') {
+        const govBodyType = formData['governing_body_type']
+        if (govBodyType === 'nera') return false
+        // Continue with normal depends_on logic for board_term_start/years
+        if (question.depends_on === 'board_term_same_as_chairman') {
+          return dependsValue === false || dependsValue === 'false'
+        }
+      }
+      
       if (question.depends_value === 'true') {
         return dependsValue === true
       }
@@ -112,46 +172,61 @@ export function GovernanceStep({ orgId, onComplete, allowUpdateForActive = false
     [formData]
   )
 
+  // Check if a question should be validated as required
+  // This handles conditional requirements properly
+  const isQuestionRequired = useCallback(
+    (question: GovernanceQuestion): boolean => {
+      // If the question is not visible, it's not required
+      if (!isQuestionVisible(question)) return false
+      
+      // If question has depends_on, it's conditionally required only when visible
+      // The is_required flag from DB might be outdated for conditional questions
+      if (question.depends_on) {
+        // This is a conditional question - required only when visible
+        return true // If visible, treat as required
+      }
+      
+      // Otherwise use the DB flag
+      return question.is_required
+    },
+    [isQuestionVisible]
+  )
+
   // Validate current section
   const validateSection = useCallback((): string[] => {
     const errors: string[] = []
 
     currentSectionQuestions.forEach((question) => {
+      // Skip invisible questions
       if (!isQuestionVisible(question)) return
 
-      if (question.is_required) {
-        const value = formData[question.question_key]
-        if (question.question_type === 'checkbox') {
-          // For checkbox, if it depends on another checkbox being true, it's required when visible
-          if (question.depends_on && question.depends_value === 'true') {
-            // This is a conditional required field - only required if parent is checked
-            if (formData[question.depends_on] === true && value !== true && value !== '') {
-              errors.push(question.question_key)
-            }
-          } else if (value !== true) {
-            errors.push(question.question_key)
-          }
-        } else if (question.question_type === 'number' || question.question_type === 'date') {
-          // Number/Date is required if it's empty or invalid
-          // But only if it's conditionally visible and parent is checked
-          if (question.depends_on && question.depends_value === 'true') {
-            if (formData[question.depends_on] === true && (!value || value.toString().trim() === '')) {
-              errors.push(question.question_key)
-            }
-          } else if (!value || value.toString().trim() === '') {
-            errors.push(question.question_key)
-          }
-        } else {
-          // Radio/text is required if empty
-          if (!value || value.toString().trim() === '') {
-            errors.push(question.question_key)
-          }
+      // Check if this question is required in current context
+      const required = isQuestionRequired(question)
+      if (!required) return
+
+      const value = formData[question.question_key]
+      
+      if (question.question_type === 'checkbox') {
+        // Checkboxes are optional unless they control other fields
+        // Only validate checkboxes that are NOT controlling other questions
+        if (!questions.some(q => q.depends_on === question.question_key)) {
+          // This checkbox doesn't control others - no validation needed
+          return
+        }
+      } else if (question.question_type === 'number' || question.question_type === 'date') {
+        if (!value || value.toString().trim() === '') {
+          errors.push(question.question_key)
+        }
+      } else {
+        // Radio/text is required if empty
+        if (!value || value.toString().trim() === '') {
+          errors.push(question.question_key)
         }
       }
     })
 
     return errors
-  }, [currentSectionQuestions, formData, isQuestionVisible])
+  }, [currentSectionQuestions, formData, isQuestionVisible, isQuestionRequired, questions])
 
   const getFieldError = (fieldName: string): boolean => {
     return validationErrors[currentSection]?.includes(fieldName) || false
@@ -464,6 +539,29 @@ export function GovernanceStep({ orgId, onComplete, allowUpdateForActive = false
     )
   }
 
+  // If validation is provided and no questions need fixing, show message
+  // This check must happen AFTER questions are loaded
+  if (validation && !loadingQuestions && filteredQuestions.length === 0 && questions.length > 0) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <p className="text-slate-600">Visi reikalingi duomenys jau užpildyti.</p>
+        </CardContent>
+      </Card>
+    )
+  }
+  
+  // If validation is provided but status is OK, also show message
+  if (validation && !loadingQuestions && validation.status === 'OK' && questions.length > 0) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <p className="text-slate-600">Visi reikalingi duomenys jau užpildyti.</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
   const currentSectionName = sections[currentSection] || ''
 
   return (
@@ -550,7 +648,7 @@ export function GovernanceStep({ orgId, onComplete, allowUpdateForActive = false
                     }
                   })
 
-                  const result = await saveGovernanceDraft(orgId, processedData)
+                  const result = await saveGovernanceDraft(orgId, processedData, allowUpdateForActive)
                   if (result.success) {
                     toast({
                       title: 'Juodraštis išsaugotas',

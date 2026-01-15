@@ -40,8 +40,8 @@ export function RegistrySection({ organizations }: RegistrySectionProps) {
   }
 
   return (
-    <section className="bg-gradient-to-b from-white to-slate-50 py-16 md:py-24">
-      <div className="container mx-auto px-4">
+    <section id="registry" className="bg-gradient-to-b from-white to-slate-50 py-16 md:py-24 scroll-mt-20">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
             Akredituotos Bendruomenės
@@ -51,7 +51,7 @@ export function RegistrySection({ organizations }: RegistrySectionProps) {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-6xl mx-auto">
           {organizations.map((org) => (
             <Card key={org.id} className="hover:shadow-lg transition-shadow border-2">
               <CardHeader>

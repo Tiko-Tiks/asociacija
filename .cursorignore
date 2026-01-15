@@ -1,0 +1,160 @@
+# ==================================================
+# PROJECT: BRANDUOLYS (Community OS)
+# INDEXING IGNORE RULES for Cursor AI
+# VERSION: v18.8 (FINAL)
+# PURPOSE:
+#   - Reduce noise in AI context
+#   - Preserve constitutional & governance files
+#   - Protect secrets
+#   - Avoid build / artifact pollution
+# ==================================================
+
+
+# --------------------------------------------------
+# Dependencies & Package Managers
+# --------------------------------------------------
+node_modules/
+.pnp/
+.pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+
+# --------------------------------------------------
+# Next.js Build & Cache
+# --------------------------------------------------
+.next/
+out/
+build/
+dist/
+.swc/
+.next/cache/
+
+
+# --------------------------------------------------
+# Supabase Local / Dev Artifacts
+# --------------------------------------------------
+supabase/.branches/
+supabase/docker/volumes/
+
+# NOTE:
+# Automatically generated migrations or seeds MAY be ignored,
+# but normative SQL must be explicitly kept below.
+supabase/migrations/*.sql
+supabase/seed.sql
+
+
+# --------------------------------------------------
+# Logs & Debug
+# --------------------------------------------------
+*.log
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.DS_Store
+Thumbs.db
+
+
+# --------------------------------------------------
+# Environment & Secrets (SECURITY CRITICAL)
+# --------------------------------------------------
+.env
+.env*.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env.backup
+
+
+# --------------------------------------------------
+# Test & Coverage
+# --------------------------------------------------
+coverage/
+.nyc_output/
+jest-coverage/
+test-results/
+playwright-report/
+playwright/.cache/
+
+
+# --------------------------------------------------
+# Large Binaries & Media (DO NOT INDEX)
+# --------------------------------------------------
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Generated PDFs are ignored by default.
+# Normative / specification PDFs MUST be explicitly kept below.
+*.pdf
+
+
+# --------------------------------------------------
+# Temporary & Editor Files
+# --------------------------------------------------
+*.tmp
+*.temp
+*.swp
+*.swo
+.vscode/
+.idea/
+*.code-workspace
+
+
+# --------------------------------------------------
+# Vercel / Deployment Artifacts
+# --------------------------------------------------
+.vercel/
+.turbo/
+
+
+# --------------------------------------------------
+# Cursor AI – Modular Rules (Noise Reduction)
+# --------------------------------------------------
+# Ignore all modular rule fragments,
+# but KEEP the master constitutional index.
+.cursor/rules/**/*.mdc
+!.cursor/rules/000-index.mdc
+
+
+# --------------------------------------------------
+# EXPLICITLY KEPT – DO NOT IGNORE
+# Constitutional, governance and normative sources
+# --------------------------------------------------
+
+# Cursor governance
+!.cursorrules
+!README.md
+
+# Core constitutional documentation
+!TECHNINĖ_SPECIFIKACIJA*.md
+!TECHNINĖ_SPECIFIKACIJA*.pdf
+!GOVERNANCE*.md
+!GOVERNANCE*.pdf
+!BRANDUOLYS*.md
+!BRANDUOLYS*.pdf
+!SCHEMA*.md
+!SCHEMA*.pdf
+!BALSAVIMO*.md
+!BALSAVIMO*.pdf
+
+# Normative SQL ONLY (avoid experimental noise)
+!schema.sql
+!governance*.sql
+!functions*.sql
+!triggers*.sql
+!policies*.sql
+!supabase/migrations/*.sql
+
+# Supabase configuration (safe, no secrets)
+!supabase/config.toml

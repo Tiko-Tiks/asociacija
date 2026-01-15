@@ -109,7 +109,7 @@ export async function getAllOrganizationsAdmin(): Promise<OrgAdminView[]> {
         } else {
           effectiveStatus = 'PENDING' // Missing data
         }
-      } else if (!org.status || org.status === 'PENDING') {
+      } else if (!org.status || org.status === 'PENDING' || org.status === 'ONBOARDING') {
         if (governanceConfig && proposedRuleset && !activeRuleset) {
           effectiveStatus = 'PENDING_REVIEW'
         } else if (!governanceConfig || !proposedRuleset) {
